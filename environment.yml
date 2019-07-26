@@ -1,0 +1,7 @@
+name: learning_to_write
+dependencies:
+  - numpy
+  - pip
+  - pip:
+      - gym
+      - tensorflow==2.0.0-beta1
