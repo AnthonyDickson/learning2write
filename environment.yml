@@ -1,7 +1,10 @@
 name: learning_to_write
 dependencies:
-  - numpy
+  - python==3.7.3
+  - numpy==1.16.4
   - pip
   - pip:
-      - gym
-      - tensorflow==2.0.0-beta1
+      - stable-baselines==2.6.0
+      - plac==1.0.0
+      - gym==0.13.1
+      - tensorflow==1.14.0
