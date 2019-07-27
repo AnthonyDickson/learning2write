@@ -28,12 +28,15 @@ class WritingEnvironment(gym.Env):
 
     N_DISCRETE_ACTIONS = 6
 
-    def __init__(self, pattern_set: PatternSet = None, cell_size=80, max_steps=1000):
+    def __init__(self, pattern_set: Optional[PatternSet] = None, max_steps=1000,
+                 cell_size: Optional[int] = None, target_window_height=480):
         """Create a writing environment.
 
-        :param pattern_set: The set of patterns to use.
-        :param cell_size: The size of the squares representing a 'pixel' in the pattern.
+        :param pattern_set: The set of patterns to use. Defaults to 3x3.
         :param max_steps: The maximum number of steps per episode.
+        :param cell_size: The size of the squares representing a 'pixel' in the pattern. By default a cell size is
+                          automatically chosen.
+        :param target_window_height: The desired height of the display window. Ignored if cell_size is set.
         """
         super(WritingEnvironment, self).__init__()
 
@@ -48,7 +51,7 @@ class WritingEnvironment(gym.Env):
         self.agent_position: np.ndarray = np.zeros(2, dtype=int)
         # GUI
         self.viewer: Optional[rendering.Viewer] = None
-        self.cell_size = cell_size
+        self.cell_size = cell_size if cell_size else self._get_cell_size(target_window_height)
         self.window_height = (self.rows + 2) * self.cell_size
         self.window_width = (2 * self.cols + 4) * self.cell_size
         # Environment Stuff
@@ -88,7 +91,6 @@ class WritingEnvironment(gym.Env):
         self.pattern = np.zeros(self.pattern_shape)
         self.agent_position = np.zeros(2, dtype=int)
         self.reference_pattern = self.pattern_set.sample()
-        self.reference_pattern = np.rot90(self.reference_pattern, k=random.randint(0, 3))
         self.steps = 0
 
         return self.state
@@ -170,6 +172,16 @@ class WritingEnvironment(gym.Env):
         if self.viewer is not None:
             self.viewer.close()
             self.viewer = None
+
+    def _get_cell_size(self, target_window_height) -> int:
+        """Calculate the cell size.
+
+        :param target_window_height: The desired height of the display window. Ignored if cell_size is set.
+        :return: The calculated cell size.
+        """
+        # TODO: Check if window is larger than display resolution and adjust accordingly.
+        cell_size = target_window_height / (2 + self.rows)  # add one row above and below for padding
+        return int(cell_size)
 
     def _move(self, direction) -> bool:
         """Move the agent and update its position.
