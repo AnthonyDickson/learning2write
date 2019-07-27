@@ -105,3 +105,7 @@ venv.bak/
 
 #PyCharm
 .idea/
+# Tensorflow
+*tensorboard/
+# Saved models
+*.pkl

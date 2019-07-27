@@ -17,56 +17,8 @@ FILL_SQUARE = 4
 QUIT = 5
 
 
-class KeyStateHandler:
-    """Simple handler that tracks the state of keys on the keyboard. If a
-    key is pressed then this handler holds a True value for it.
-
-    For example::
-
-        >>> win = pyglet.window.Window
-        >>> keyboard = KeyStateHandler()
-        >>> win.push_handlers(keyboard)
-
-        # Hold down the "up" arrow...
-
-        >>> keyboard[key.UP]
-        True
-        >>> keyboard.key_was_pressed(key.UP)
-        True
-        >>> keyboard.key_was_released(key.UP)
-        False
-        >>> keyboard.key_was_held(key.UP)
-        True
-        >>> keyboard[key.DOWN]
-        False
-
-    """
-
-    def __init__(self):
-        self.curr_state = defaultdict(lambda: False)
-        self.prev_state = defaultdict(lambda: False)
-
-    def on_key_press(self, symbol, modifiers):
-        self.prev_state[symbol] = self.curr_state[symbol]
-        self.curr_state[symbol] = True
-
-    def on_key_release(self, symbol, modifiers):
-        self.prev_state[symbol] = self.curr_state[symbol]
-        self.curr_state[symbol] = False
-
-    def key_was_pressed(self, symbol):
-        return not self.prev_state[symbol] and self.curr_state[symbol]
-
-    def key_was_released(self, symbol):
-        return self.prev_state[symbol] and not self.curr_state[symbol]
-
-    def key_was_held(self, symbol):
-        return self.prev_state[symbol] and self.curr_state[symbol]
-
-    def __getitem__(self, key):
-        return self.curr_state[key]
-
-
+# TODO: implement seed()
+# TODO: Choose patterns randomly
 class WritingEnvironment(gym.Env):
     """Custom Environment that follows gym interface"""
     WINDOW_WIDTH = 640
@@ -113,39 +65,22 @@ class WritingEnvironment(gym.Env):
     def should_start(self):
         return self.viewer.isopen and self.keys.key_was_pressed(key.SPACE) or self.keys.key_was_pressed(key.ENTER)
 
-    def _move(self, direction) -> bool:
-        row, col = self.agent_position
+    def reset(self):
+        # Reset the state of the environment to an initial state
+        self.board = np.zeros(self.board_shape)
+        self.agent_position = np.zeros(2)
+        self.pattern = np.array([[1, 1, 1],
+                                 [0, 1, 0],
+                                 [0, 1, 0]])
 
-        if direction == MOVE_UP:
-            row -= 1  # Visually, 2d arrays start at the top-left corner and rows increase in number as they go down.
-        elif direction == MOVE_DOWN:
-            row += 1
-        elif direction == MOVE_LEFT:
-            col -= 1
-        elif direction == MOVE_RIGHT:
-            col += 1
-        else:
-            raise ValueError('Unrecognised direction \'%d\'.' % direction)
-
-        new_pos = (row, col)
-
-        if self._is_position_valid(new_pos):
-            self.agent_position = new_pos
-            return True
-        else:
-            return False
-
-    def _is_position_valid(self, pos):
-        row, col = pos
-
-        return 0 <= row < self.height and 0 <= col < self.width
+        return self.state
 
     def step(self, action: int):
         move_reward = -1
         correct_square_reward = 2
         incorrect_square_reward = -2
         bad_end = -1000
-        good_end = 1
+        good_end = 10
 
         done = False
         info = dict()
@@ -180,16 +115,6 @@ class WritingEnvironment(gym.Env):
 
         return self.state, reward, done, info
 
-    def reset(self):
-        # Reset the state of the environment to an initial state
-        self.board = np.zeros(self.board_shape)
-        self.agent_position = np.array([self.height // 2, self.width // 2])
-        self.pattern = np.array([[1, 1, 1],
-                                 [0, 1, 0],
-                                 [0, 1, 0]])
-
-        return self.state
-
     def render(self, mode='human', close=False):
         # Render the environment to the screen
         if mode == 'text':
@@ -198,6 +123,58 @@ class WritingEnvironment(gym.Env):
             return self._render(mode)
         else:
             raise NotImplementedError
+
+    def wait(self, duration):
+        """Essentially perform a no-op while still processing GUI events.
+
+        :returns: False is window was closed during wait, True otherwise.
+        """
+        duration = timedelta(seconds=duration)
+        start = datetime.now()
+
+        self.viewer.window.dispatch_events()
+        delta = timedelta()
+
+        while delta < duration:
+            if self.should_quit:
+                return False
+
+            self.viewer.window.dispatch_events()
+            delta = datetime.now() - start
+
+        return True
+
+    def close(self):
+        if self.viewer is not None:
+            self.viewer.close()
+            self.viewer = None
+
+    def _move(self, direction) -> bool:
+        row, col = self.agent_position
+
+        if direction == MOVE_UP:
+            row -= 1  # Visually, 2d arrays start at the top-left corner and rows increase in number as they go down.
+        elif direction == MOVE_DOWN:
+            row += 1
+        elif direction == MOVE_LEFT:
+            col -= 1
+        elif direction == MOVE_RIGHT:
+            col += 1
+        else:
+            raise ValueError('Unrecognised direction \'%d\'.' % direction)
+
+        new_pos = (row, col)
+
+        if self._is_position_valid(new_pos):
+            self.agent_position = new_pos
+            return True
+        else:
+            return False
+
+    def _is_position_valid(self, pos):
+        row, col = pos
+
+        return 0 <= row < self.height and 0 <= col < self.width
 
     def _render_text(self):
         print('―' * 2 * (self.width + 2))
@@ -283,59 +260,84 @@ class WritingEnvironment(gym.Env):
         for i, point in enumerate(geom.v):
             geom.v[i] = (point[0] + x + offset, point[1] + y + offset)
 
-    def wait(self, duration):
-        """Essentially perform a no-op while still processing GUI events.
 
-        :returns: False is window was closed during wait, True otherwise.
-        """
-        duration = timedelta(seconds=duration)
-        start = datetime.now()
+class KeyStateHandler:
+    """Simple handler that tracks the state of keys on the keyboard. If a
+    key is pressed then this handler holds a True value for it.
 
-        self.viewer.window.dispatch_events()
-        delta = timedelta()
+    For example::
 
-        while delta < duration:
-            if self.should_quit:
-                return False
+        >>> win = pyglet.window.Window
+        >>> keyboard = KeyStateHandler()
+        >>> win.push_handlers(keyboard)
 
-            self.viewer.window.dispatch_events()
-            delta = datetime.now() - start
+        # Hold down the "up" arrow...
 
-        return True
+        >>> keyboard[key.UP]
+        True
+        >>> keyboard.key_was_pressed(key.UP)
+        True
+        >>> keyboard.key_was_released(key.UP)
+        False
+        >>> keyboard.key_was_held(key.UP)
+        True
+        >>> keyboard[key.DOWN]
+        False
 
-    def close(self):
-        if self.viewer is not None:
-            self.viewer.close()
-            self.viewer = None
+    """
+
+    def __init__(self):
+        self.curr_state = defaultdict(lambda: False)
+        self.prev_state = defaultdict(lambda: False)
+
+    def on_key_press(self, symbol, modifiers):
+        self.prev_state[symbol] = self.curr_state[symbol]
+        self.curr_state[symbol] = True
+
+    def on_key_release(self, symbol, modifiers):
+        self.prev_state[symbol] = self.curr_state[symbol]
+        self.curr_state[symbol] = False
+
+    def key_was_pressed(self, symbol):
+        return not self.prev_state[symbol] and self.curr_state[symbol]
+
+    def key_was_released(self, symbol):
+        return self.prev_state[symbol] and not self.curr_state[symbol]
+
+    def key_was_held(self, symbol):
+        return self.prev_state[symbol] and self.curr_state[symbol]
+
+    def __getitem__(self, key):
+        return self.curr_state[key]
 
 
 if __name__ == '__main__':
-    env = WritingEnvironment()
-    isopen = True
-    episode = 0
+    with WritingEnvironment() as env:
+        isopen = True
+        episode = 0
+        fps = 1.0
 
-    while isopen:
-        episode += 1
-        state = env.reset()
+        while isopen:
+            episode += 1
+            state = env.reset()
 
-        for step in range(10):
-            action = env.action_space.sample()
-            state, reward, done, _ = env.step(action)
+            for step in range(10):
+                start = datetime.now()
+                action = env.action_space.sample()
+                state, reward, done, _ = env.step(action)
 
-            print('Episode %02d - Step %02d - Reward: %d' % (episode, step + 1, reward))
-            env.render()
-            isopen = env.wait(1.0)
+                print('Episode %02d - Step %02d - Reward: %d' % (episode, step + 1, reward))
+                env.render()
+                env.wait(fps - (datetime.now() - start).total_seconds())  # sync steps to framerate (`fps`)
 
-            if done or not isopen:
-                break
+                if done or env.should_quit:
+                    break
 
-        while True:
-            env.wait(0)
+            while True:
+                env.wait(0)
 
-            if env.should_quit:
-                isopen = False
-                break
-            elif env.should_start:
-                break
-
-    env.close()
+                if env.should_quit:
+                    isopen = False
+                    break
+                elif env.should_start:
+                    break
