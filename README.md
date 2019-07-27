@@ -1,4 +1,4 @@
-# learning_to_write
+# Learning2write
 Teaching a neural network how to write characters.
 
 ## Getting started
@@ -19,4 +19,17 @@ Teaching a neural network how to write characters.
     
 3.  Activate the conda environment:
     ```bash
-    $ conda activate learning_to_write
+    $ conda activate learning2write
+    ```
+    
+4.  Train a model:
+    ```bash
+    $ python train.py -updates 100000 -n-workers=4
+    ```
+    
+5.  Test a previously trained model:
+    ```bash
+    $ python test.py
+    ```
+    
+6.  You can see the help text for these scripts by adding the flag `-h` or `--help`.
