@@ -7,7 +7,7 @@ Teaching a neural network how to write characters.
     $ sudo apt-get update && sudo apt-get install cmake libopenmpi-dev python3-dev zlib1g-dev
     ```
     
-    See the prequisites section of [stable-baselines.readthedocs.io](https://stable-baselines.readthedocs.io/en/master/guide/install.html#prerequisites) 
+    See the prerequisites section of [stable-baselines.readthedocs.io](https://stable-baselines.readthedocs.io/en/master/guide/install.html#prerequisites) 
     for instructions for other operating systems.
 
 2.  Set up the python environment using conda:
@@ -24,12 +24,12 @@ Teaching a neural network how to write characters.
     
 4.  Train a model:
     ```bash
-    $ python train.py -updates 100000 -n-workers=4
+    $ python train.py -updates 1000000 -n-workers=4
     ```
     
 5.  Test a previously trained model:
     ```bash
-    $ python test.py
+    $ python test.py -model-path models/acktr_learning2write_3x3
     ```
     
 6.  You can see the help text for these scripts by adding the flag `-h` or `--help`.
