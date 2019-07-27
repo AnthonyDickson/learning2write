@@ -27,8 +27,12 @@ def main(model_path=None, pattern_set='3x3', updates=10000, n_workers=4):
     else:
         model = ACKTR(MlpPolicy, env, verbose=1, tensorboard_log=tensorboard_log)
 
-    model.learn(total_timesteps=updates, reset_num_timesteps=model_path is None)
-    model.save("acktr_learning2write_%s" % pattern_set)
+    try:
+        model.learn(total_timesteps=updates, reset_num_timesteps=model_path is None)
+    except KeyboardInterrupt:
+        print('Stopping training...')
+    finally:
+        model.save("acktr_learning2write_%s" % pattern_set)
 
 
 if __name__ == '__main__':
