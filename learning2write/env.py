@@ -28,11 +28,12 @@ class WritingEnvironment(gym.Env):
 
     N_DISCRETE_ACTIONS = 6
 
-    def __init__(self, pattern_set: PatternSet = None, cell_size=80):
+    def __init__(self, pattern_set: PatternSet = None, cell_size=80, max_steps=1000):
         """Create a writing environment.
 
         :param pattern_set: The set of patterns to use.
         :param cell_size: The size of the squares representing a 'pixel' in the pattern.
+        :param max_steps: The maximum number of steps per episode.
         """
         super(WritingEnvironment, self).__init__()
 
@@ -50,7 +51,9 @@ class WritingEnvironment(gym.Env):
         self.cell_size = cell_size
         self.window_height = (self.rows + 2) * self.cell_size
         self.window_width = (2 * self.cols + 4) * self.cell_size
-        # Spaces
+        # Environment Stuff
+        self.steps = 0
+        self.max_steps = max_steps
         self.action_space = spaces.Discrete(WritingEnvironment.N_DISCRETE_ACTIONS)
         self.observation_space = spaces.Box(low=0, high=1, shape=(self.rows, self.cols, 3), dtype=np.uint8)
 
@@ -86,6 +89,7 @@ class WritingEnvironment(gym.Env):
         self.agent_position = np.zeros(2, dtype=int)
         self.reference_pattern = self.pattern_set.sample()
         self.reference_pattern = np.rot90(self.reference_pattern, k=random.randint(0, 3))
+        self.steps = 0
 
         return self.state
 
@@ -128,6 +132,11 @@ class WritingEnvironment(gym.Env):
                 done = True
         else:
             raise ValueError('Unrecognised action: %s' % str(action))
+
+        self.steps += 1
+
+        if self.steps >= self.max_steps:
+            done = True
 
         return self.state, reward, done, info
 
