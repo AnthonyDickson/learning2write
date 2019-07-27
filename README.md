@@ -2,6 +2,10 @@
 Teaching a neural network how to write characters.
 
 ## Getting started
+There is a convenience script `setup.sh` which assumes a UNIX based system and automates most of the setup process. 
+If you use this script then restart your terminal after successfully running it (to get conda set up correctly) and 
+skip to step 3. 
+
 1.  Install the required system packages:
     ```bash
     sudo apt-get update && sudo apt-get install cmake libopenmpi-dev python3-dev zlib1g-dev 
