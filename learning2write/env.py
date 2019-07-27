@@ -67,7 +67,7 @@ class WritingEnvironment(gym.Env):
         row, col = self.agent_position
         pos[row, col] = 1
 
-        return np.stack((self.pattern, self.reference_pattern, pos))
+        return np.stack((self.pattern, self.reference_pattern, pos), axis=2)  # create HWC tensor
 
     @property
     def should_quit(self) -> bool:
