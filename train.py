@@ -70,7 +70,7 @@ def main(model_path=None, pattern_set='3x3', updates=100000,
     """Train an ACKTR RL agent on the learning2write environment."""
 
     env = SubprocVecEnv([lambda: WritingEnvironment(get_pattern_set(pattern_set)) for _ in range(n_workers)])
-    tensorboard_log = "./learning2write_%s_tensorboard/" % pattern_set
+    tensorboard_log = "./tensorboard_learning2write_%s/" % pattern_set
 
     # TODO: Make type of model configurable via cli
     if model_path:
