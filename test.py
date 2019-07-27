@@ -4,24 +4,31 @@ from statistics import mean
 import plac
 from stable_baselines import ACKTR
 
-from env import WritingEnvironment
+from learning2write import get_pattern_set
+from learning2write.env import WritingEnvironment
 
 
 @plac.annotations(
-    path_to_model=plac.Annotation('The path and the filename of the saved model to run.', type=str),
+    model_path=plac.Annotation('The path and the filename of the saved model to run.',
+                               type=str, kind='option'),
+    pattern_set=plac.Annotation('The set of patterns to use in the environment.', choices=['3x3', '5x5'],
+                                kind='option', type=str),
     max_updates=plac.Annotation('The maximum number of steps to perform in the evironment.', type=int, kind='option'),
     max_steps=plac.Annotation('The maximum number of steps to perform per episode.', type=int, kind='option'),
     fps=plac.Annotation('How many steps to perform per second.', type=float, kind='option')
 )
-def main(path_to_model='acktr_learning2write', max_updates=1000, max_steps=100, fps=2.0):
+def main(model_path='acktr_learning2write', pattern_set='3x3', max_updates=1000, max_steps=100, fps=2.0):
     """Run a model in the writing environment in test mode (i.e. no training, just predictions).
 
     Press `Q` or `ESCAPE` to quit at any time.
     """
-    # TODO: Make type of model configurable via cli
-    model = ACKTR.load(path_to_model)
 
-    with WritingEnvironment() as env:
+    pattern_set = get_pattern_set(pattern_set)
+
+    # TODO: Make type of model configurable via cli
+    model = ACKTR.load(model_path)
+
+    with WritingEnvironment(pattern_set) as env:
         episode = 0
         updates = 0
         rewards = []
