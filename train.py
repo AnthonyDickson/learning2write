@@ -1,13 +1,16 @@
 import os
 from datetime import datetime
 
+import numpy as np
 import plac as plac
+import tensorflow as tf
 from stable_baselines import ACKTR
+from stable_baselines.a2c.utils import conv, conv_to_fc, linear
 from stable_baselines.common import BaseRLModel
-from stable_baselines.common.policies import MlpPolicy
+from stable_baselines.common.policies import MlpPolicy, CnnPolicy
 from stable_baselines.common.vec_env import SubprocVecEnv
 
-from learning2write import WritingEnvironment, get_pattern_set
+from learning2write import WritingEnvironment, get_pattern_set, EMNIST_PATTERN_SETS, VALID_PATTERN_SETS
 
 
 class CheckpointHandler:
@@ -52,10 +55,27 @@ class CheckpointHandler:
         model.save(checkpoint)
 
 
+def emnist_cnn_feature_extractor(scaled_images, **kwargs):
+    """
+    CNN from Nature paper.
+
+    :param scaled_images: (TensorFlow Tensor) Image input placeholder
+    :param kwargs: (dict) Extra keywords parameters for the convolutional layers of the CNN
+    :return: (TensorFlow Tensor) The CNN output layer
+    """
+    activ = tf.nn.relu
+    layer_1 = activ(conv(scaled_images, 'c1', n_filters=16, filter_size=4, stride=2, init_scale=np.sqrt(2), **kwargs))
+    layer_2 = activ(conv(layer_1, 'c2', n_filters=32, filter_size=3, stride=1, init_scale=np.sqrt(2), **kwargs))
+    layer_3 = conv_to_fc(layer_2)
+    return activ(linear(layer_3, 'fc1', n_hidden=256, init_scale=np.sqrt(2)))
+
+
 @plac.annotations(
     model_path=plac.Annotation('Continue training a model specified by a path to a saved model.',
                                type=str, kind='option'),
-    pattern_set=plac.Annotation('The set of patterns to use in the environment.', choices=['3x3', '5x5'],
+    policy_type=plac.Annotation('The type of policy network to use.Ignored if loading a model.',
+                                type=str, kind='option', choices=['mlp', 'cnn']),
+    pattern_set=plac.Annotation('The set of patterns to use in the environment.', choices=VALID_PATTERN_SETS,
                                 kind='option', type=str),
     updates=plac.Annotation('How steps to train the model for.', type=int, kind='option'),
     checkpoint_path=plac.Annotation('The directory to save checkpoint data to. '
@@ -64,20 +84,29 @@ class CheckpointHandler:
                                          'training. Set to zero to disable checkpointing.', type=int, kind='option'),
     n_workers=plac.Annotation('How many workers, or cpus, to train with.', type=int, kind='option')
 )
-def main(model_path=None, pattern_set='3x3', updates=100000,
+def main(model_path=None, policy_type='mlp', pattern_set='3x3', updates=100000,
          checkpoint_path=None, checkpoint_frequency=1000,
          n_workers=4):
     """Train an ACKTR RL agent on the learning2write environment."""
 
     env = SubprocVecEnv([lambda: WritingEnvironment(get_pattern_set(pattern_set)) for _ in range(n_workers)])
-    tensorboard_log = "./tensorboard_learning2write_%s/" % pattern_set
+    tensorboard_log = "./tensorboard/"
 
     # TODO: Make type of model configurable via cli
     if model_path:
         model = ACKTR.load(model_path, tensorboard_log=tensorboard_log)
         model.set_env(env)
     else:
-        model = ACKTR(MlpPolicy, env, verbose=1, tensorboard_log=tensorboard_log)
+        if policy_type == 'mlp':
+            policy = MlpPolicy
+        elif policy_type == 'cnn':
+            assert pattern_set in EMNIST_PATTERN_SETS, 'A CNN policy must be used with an EMNIST pattern set.'
+            policy = CnnPolicy
+        else:
+            raise 'Unrecognised policy type \'%s\'' % policy_type
+
+        model = ACKTR(policy, env, verbose=1, tensorboard_log=tensorboard_log,
+                      policy_kwargs={'cnn_extractor': emnist_cnn_feature_extractor})
 
     if checkpoint_frequency > 0:
         timestamp = ''.join(map(lambda s: '%02d' % s, datetime.now().utctimetuple()))
@@ -89,7 +118,8 @@ def main(model_path=None, pattern_set='3x3', updates=100000,
         checkpointer = None
 
     try:
-        model.learn(total_timesteps=updates, reset_num_timesteps=model_path is None, callback=checkpointer)
+        model.learn(total_timesteps=updates, tb_log_name='ACKTR_%s' % pattern_set.upper(),
+                    reset_num_timesteps=model_path is None, callback=checkpointer)
         checkpointer.save(model, "checkpoint_last" % pattern_set)
     except KeyboardInterrupt:
         # TODO: Make this work properly... Currently a SIGINT causes the workers for ACKTR to

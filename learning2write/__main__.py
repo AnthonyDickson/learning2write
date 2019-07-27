@@ -2,11 +2,11 @@ from datetime import datetime
 
 import plac
 
-from learning2write import WritingEnvironment, get_pattern_set
+from learning2write import WritingEnvironment, get_pattern_set, VALID_PATTERN_SETS
 
 
 @plac.annotations(
-    pattern_set=plac.Annotation('The set of patterns to use in the environment.', choices=['3x3', '5x5'],
+    pattern_set=plac.Annotation('The set of patterns to use in the environment.', choices=VALID_PATTERN_SETS,
                                 kind='option', type=str),
     max_steps=plac.Annotation('The maximum number of steps to perform per episode.', type=int, kind='option'),
     fps=plac.Annotation('How many steps to perform per second.', type=float, kind='option')
