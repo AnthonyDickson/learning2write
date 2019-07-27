@@ -95,40 +95,38 @@ class WritingEnvironment(gym.Env):
 
     def step(self, action: int):
         # TODO: Refactor this to somewhere more accessible
-        move_reward = -1
+        penalty_per_step = -1
         correct_square_reward = 3
-        incorrect_square_reward = -2
-        bad_end = -100
-        good_end = 100
-        out_of_bounds = -1000
+        wrong_pattern_penalty = -100
+        correct_pattern_reward = 100
+        out_of_bounds_penalty = -1000
 
+        reward = penalty_per_step
         done = False
         info = dict()
 
         if action == FILL_SQUARE:
             row, col = self.agent_position
+            was_unfilled = self.pattern[row, col] == 0
+            self.pattern[row, col] = 1
 
-            # Agent shouldn't try to fill the same cell twice.
-            if self.pattern[row, col]:
-                reward = incorrect_square_reward
-            else:
-                self.pattern[row, col] = 1
-
+            if was_unfilled and self.pattern[row, col] == self.reference_pattern[row, col]:
                 # Agent should only fill in cells that are also filled in the reference pattern
-                if self.reference_pattern[row, col] == 1:
-                    reward = correct_square_reward
-                else:
-                    reward = incorrect_square_reward
+                reward = correct_square_reward
         elif action == QUIT:
             # Agent should only quit when the pattern has been copied exactly.
-            reward = good_end if np.array_equal(self.pattern, self.reference_pattern) else bad_end
+            if np.array_equal(self.pattern, self.reference_pattern):
+                reward = correct_pattern_reward
+            else:
+                reward = wrong_pattern_penalty
+
             done = True
         elif 0 <= action < WritingEnvironment.N_DISCRETE_ACTIONS:
             # Agent should only move within the defined grid world.
-            if self._move(action):
-                reward = move_reward
-            else:
-                reward = out_of_bounds
+            move_was_valid = self._move(action)
+
+            if not move_was_valid:
+                reward = out_of_bounds_penalty
                 done = True
         else:
             raise ValueError('Unrecognised action: %s' % str(action))
