@@ -118,7 +118,8 @@ def main(model_path=None, policy_type='mlp', pattern_set='3x3', updates=100000,
         checkpointer = None
 
     try:
-        model.learn(total_timesteps=updates, tb_log_name='ACKTR_%s' % pattern_set.upper(),
+        model.learn(total_timesteps=updates, tb_log_name='ACKTR_%s_%s' % (pattern_set.upper(),
+                                                                          model.policy.__name__.upper()),
                     reset_num_timesteps=model_path is None, callback=checkpointer)
         checkpointer.save(model, "checkpoint_last" % pattern_set)
     except KeyboardInterrupt:
