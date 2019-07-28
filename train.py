@@ -57,6 +57,91 @@ class CheckpointHandler:
         model.save(checkpoint)
 
 
+class EmnistMlpPolicy(FeedForwardPolicy):
+    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, **kwargs):
+        super().__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch,
+                         net_arch=[512, 512, {'vf': [64], 'pi': [64]}],
+                         act_fun=tf.keras.activations.selu,
+                         feature_extraction='mlp',
+                         **kwargs)
+
+
+def get_env(n_workers: int, pattern_set: PatternSet) -> SubprocVecEnv:
+    """Create a vectorised writing environment.
+
+    :param n_workers: The number of instances of the environment to run in parallel.
+    :param pattern_set: The pattern set to be used in the environment.
+    :return: The environment instance.
+    """
+    # Give the agent at most just enough moves to cover the grid world exactly.
+    max_steps = 2 * pattern_set.WIDTH * pattern_set.HEIGHT
+
+    return SubprocVecEnv([lambda: WritingEnvironment(pattern_set, max_steps=max_steps) for _ in range(n_workers)])
+
+
+def get_model(env: SubprocVecEnv, model_path: Optional[str], model_type: str, pattern_set: PatternSet, policy_type: str,
+              tensorboard_log_path: str) -> ActorCriticRLModel:
+    """Create the RL agent model, optionally loaded from a previously trained model.
+
+    :param env: The vectorised gym environment (see stable_baselines.common.vec_env.SubprocVecEnv) to use with
+                the model.
+    :param model_path: The path to a saved model. If None a new model is created.
+    :param model_type: The name of the type of model to use.
+    :param pattern_set: The pattern set that the model will be trained on.
+    :param policy_type: The name of the type of policy to use for the model.
+    :param tensorboard_log_path: The path to log training for use with Tensorboard.
+    :return: The instance of the RL agent.
+    """
+    if model_path:
+        model = ActorCriticRLModel.load(model_path, tensorboard_log=tensorboard_log_path)
+        model.set_env(env)
+    else:
+        policy, policy_kwargs = get_policy(policy_type, pattern_set)
+        model = get_model_type(model_type)(policy, env, verbose=1, tensorboard_log=tensorboard_log_path,
+                                           policy_kwargs=policy_kwargs)
+    return model
+
+
+def get_policy(policy_type: str, pattern_set: PatternSet) -> Tuple[Type[FeedForwardPolicy], dict]:
+    """Translate a policy type from a string to a class type.
+
+    :param policy_type: The name of the type of policy.
+    :param pattern_set: The pattern set that the model will be trained on.
+    :return: The class corresponding to the name and the relevant kwargs dictionary.
+             Raises ValueError if the name is not recognised.
+    """
+    if policy_type == 'mlp':
+        if pattern_set.name in EMNIST_PATTERN_SETS:
+            policy = EmnistMlpPolicy
+        else:
+            policy = MlpPolicy
+
+        policy_kwargs = dict()
+
+    elif policy_type == 'cnn':
+        assert pattern_set.name in EMNIST_PATTERN_SETS, 'A CNN policy must be used with an EMNIST pattern set.'
+        policy = CnnPolicy
+        policy_kwargs = {'cnn_extractor': emnist_cnn_feature_extractor}
+    else:
+        raise 'Unrecognised policy type \'%s\'' % policy_type
+    return policy, policy_kwargs
+
+
+def get_model_type(model_type) -> Type[ActorCriticRLModel]:
+    """Translate a model name from a string to a class type.
+
+    :param model_type: The name of the type of model.
+    :return: The class corresponding to the name.
+             Raises ValueError if the name is not recognised.
+    """
+    if model_type == 'acktr':
+        return ACKTR
+    if model_type == 'ppo':
+        return PPO2
+    else:
+        raise ValueError('Unrecognised model type \'%s\'' % model_type)
+
+
 def emnist_cnn_feature_extractor(scaled_images, **kwargs):
     """
     CNN feature extractor for EMNIST images (28x28).
@@ -66,10 +151,10 @@ def emnist_cnn_feature_extractor(scaled_images, **kwargs):
     :return: (TensorFlow Tensor) The CNN output layer
     """
     activ = tf.nn.relu
-    layer_1 = activ(conv(scaled_images, 'c1', n_filters=16, filter_size=4, stride=2, init_scale=np.sqrt(2), **kwargs))
-    layer_2 = activ(conv(layer_1, 'c2', n_filters=32, filter_size=3, stride=1, init_scale=np.sqrt(2), **kwargs))
+    layer_1 = activ(conv(scaled_images, 'c1', n_filters=32, filter_size=7, stride=4, init_scale=np.sqrt(2), **kwargs))
+    layer_2 = activ(conv(layer_1, 'c2', n_filters=64, filter_size=5, stride=1, init_scale=np.sqrt(2), **kwargs))
     layer_3 = conv_to_fc(layer_2)
-    return activ(linear(layer_3, 'fc1', n_hidden=256, init_scale=np.sqrt(2)))
+    return activ(linear(layer_3, 'fc1', n_hidden=128, init_scale=np.sqrt(2)))
 
 
 def get_checkpointer(checkpoint_frequency: int, checkpoint_path: Optional[str], model: ActorCriticRLModel,
@@ -91,77 +176,6 @@ def get_checkpointer(checkpoint_frequency: int, checkpoint_path: Optional[str], 
     else:
         checkpointer = None
     return checkpointer
-
-
-def get_model_type(model_type) -> Type[ActorCriticRLModel]:
-    """Translate a model name from a string to a class type.
-
-    :param model_type: The name of the type of model.
-    :return: The class corresponding to the name.
-             Raises ValueError if the name is not recognised.
-    """
-    if model_type == 'acktr':
-        return ACKTR
-    if model_type == 'ppo':
-        return PPO2
-    else:
-        raise ValueError('Unrecognised model type \'%s\'' % model_type)
-
-
-def get_policy(policy_type: str, pattern_set: str) -> Tuple[Type[FeedForwardPolicy], dict]:
-    """Translate a policy type from a string to a class type.
-
-    :param policy_type: The name of the type of policy.
-    :param pattern_set: The name of the pattern set that the model will be trained on.
-    :return: The class corresponding to the name and the relevant kwargs dictionary.
-             Raises ValueError if the name is not recognised.
-    """
-    if policy_type == 'mlp':
-        policy = MlpPolicy
-        policy_kwargs = dict()
-    elif policy_type == 'cnn':
-        assert pattern_set in EMNIST_PATTERN_SETS, 'A CNN policy must be used with an EMNIST pattern set.'
-        policy = CnnPolicy
-        policy_kwargs = {'cnn_extractor': emnist_cnn_feature_extractor}
-    else:
-        raise 'Unrecognised policy type \'%s\'' % policy_type
-    return policy, policy_kwargs
-
-
-def get_model(env: SubprocVecEnv, model_path: Optional[str], model_type: str, pattern_set: str, policy_type: str,
-              tensorboard_log_path: str) -> ActorCriticRLModel:
-    """Create the RL agent model, optionally loaded from a previously trained model.
-
-    :param env: The vectorised gym environment (see stable_baselines.common.vec_env.SubprocVecEnv) to use with
-                the model.
-    :param model_path: The path to a saved model. If None a new model is created.
-    :param model_type: The name of the type of model to use.
-    :param pattern_set: The name of the pattern set that the model will be trained on.
-    :param policy_type: The name of the type of policy to use for the model.
-    :param tensorboard_log_path: The path to log training for use with Tensorboard.
-    :return: The instance of the RL agent.
-    """
-    if model_path:
-        model = ActorCriticRLModel.load(model_path, tensorboard_log=tensorboard_log_path)
-        model.set_env(env)
-    else:
-        policy, policy_kwargs = get_policy(policy_type, pattern_set)
-        model = get_model_type(model_type)(policy, env, verbose=1, tensorboard_log=tensorboard_log_path,
-                                           policy_kwargs=policy_kwargs)
-    return model
-
-
-def get_env(n_workers: int, pattern_set: PatternSet) -> SubprocVecEnv:
-    """Create a vectorised writing environment.
-
-    :param n_workers: The number of instances of the environment to run in parallel.
-    :param pattern_set: The pattern set to be used in the environment.
-    :return: The environment instance.
-    """
-    # Give the agent at most just enough moves to cover the grid world exactly.
-    max_steps = 2 * pattern_set.WIDTH * pattern_set.HEIGHT
-
-    return SubprocVecEnv([lambda: WritingEnvironment(pattern_set, max_steps=max_steps) for _ in range(n_workers)])
 
 
 @plac.annotations(
@@ -197,7 +211,7 @@ def main(pattern_set='3x3', emnist_batch_size=1028, model_type='acktr', model_pa
     pattern_set_ = get_pattern_set(pattern_set, emnist_batch_size)
 
     env = get_env(n_workers, pattern_set_)
-    model = get_model(env, model_path, model_type, pattern_set, policy_type, tensorboard_log_path='./tensorboard/')
+    model = get_model(env, model_path, model_type, pattern_set_, policy_type, tensorboard_log_path='./tensorboard/')
     checkpointer = get_checkpointer(checkpoint_frequency, checkpoint_path, model, pattern_set)
 
     try:

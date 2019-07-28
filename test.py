@@ -1,32 +1,49 @@
 from datetime import datetime
 from statistics import mean
+from typing import Type
 
 import plac
+from stable_baselines import ACKTR, PPO2
 from stable_baselines.common import ActorCriticRLModel
 
-from learning2write import get_pattern_set
+from learning2write import get_pattern_set, VALID_PATTERN_SETS
 from learning2write.env import WritingEnvironment
+
+
+def get_model_type(model_type) -> Type[ActorCriticRLModel]:
+    """Translate a model name from a string to a class type.
+
+    :param model_type: The name of the type of model.
+    :return: The class corresponding to the name.
+             Raises ValueError if the name is not recognised.
+    """
+    if model_type == 'acktr':
+        return ACKTR
+    if model_type == 'ppo':
+        return PPO2
+    else:
+        raise ValueError('Unrecognised model type \'%s\'' % model_type)
 
 
 @plac.annotations(
     model_path=plac.Annotation('The path and the filename of the saved model to run.',
                                type=str, kind='positional'),
-    pattern_set=plac.Annotation('The set of patterns to use in the environment.', choices=['3x3', '5x5'],
+    model_type=plac.Annotation('The type of model that is being loaded.', choices=['acktr', 'ppo'],
+                               type=str, kind='positional'),
+    pattern_set=plac.Annotation('The set of patterns to use in the environment.', choices=VALID_PATTERN_SETS,
                                 kind='option', type=str),
     max_updates=plac.Annotation('The maximum number of steps to perform in the evironment.', type=int, kind='option'),
     max_steps=plac.Annotation('The maximum number of steps to perform per episode.', type=int, kind='option'),
     fps=plac.Annotation('How many steps to perform per second.', type=float, kind='option')
 )
-def main(model_path, pattern_set='3x3', max_updates=1000, max_steps=100, fps=2.0):
+def main(model_path, model_type, pattern_set='3x3', max_updates=1000, max_steps=100, fps=2.0):
     """Run a model in the writing environment in test mode (i.e. no training, just predictions).
 
     Press `Q` or `ESCAPE` to quit at any time.
     """
 
     pattern_set = get_pattern_set(pattern_set)
-
-    # TODO: Make type of model configurable via cli
-    model = ActorCriticRLModel.load(model_path)
+    model = get_model_type(model_type).load(model_path)
 
     with WritingEnvironment(pattern_set) as env:
         episode = 0
@@ -38,7 +55,7 @@ def main(model_path, pattern_set='3x3', max_updates=1000, max_steps=100, fps=2.0
             steps, reward = run_episode(env, episode, fps, updates, max_updates, max_steps, model)
             rewards.append(reward)
             updates += steps
-            print('\nEpisode %02d - Steps: %d - Episode Reward: %.2f - Smoothed Avg. Reward: %.2f'
+            print('\rEpisode %02d - Steps: %d - Episode Reward: %.2f - Smoothed Avg. Reward: %.2f'
                   % (episode, steps, reward, mean(rewards[-1 - min(len(rewards) - 1, 100):])) + ' ' * 40)
 
             if env.should_quit:

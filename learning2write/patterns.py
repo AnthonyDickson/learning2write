@@ -1,5 +1,5 @@
 """This module defines the patterns (or symbols) to use in the learning2write environment."""
-
+import abc
 import random
 from abc import ABC
 
@@ -7,7 +7,7 @@ import numpy as np
 from mnist import MNIST
 
 SIMPLE_PATTERN_SETS = {'3x3', '5x5'}
-EMNIST_PATTERN_SETS = {'digits', 'letters', 'emnist'}
+EMNIST_PATTERN_SETS = {'mnist', 'digits', 'letters', 'emnist'}
 VALID_PATTERN_SETS = SIMPLE_PATTERN_SETS.union(EMNIST_PATTERN_SETS)
 
 
@@ -25,12 +25,11 @@ def get_pattern_set(pattern_set_name, batch_size=32):
         return Patterns3x3()
     elif pattern_set_name == '5x5':
         return Patterns5x5()
-    elif pattern_set_name == 'digits':
-        return PatternsMNIST(pattern_set_name, batch_size)
-    elif pattern_set_name == 'letters':
-        return PatternsMNIST(pattern_set_name, batch_size)
-    elif pattern_set_name == 'emnist':
-        return PatternsMNIST('byclass', batch_size)
+    elif pattern_set_name in EMNIST_PATTERN_SETS:
+        if pattern_set_name == 'emnist':
+            return PatternsMNIST('byclass', batch_size)
+        else:
+            return PatternsMNIST(pattern_set_name, batch_size)
 
 
 class PatternSet(ABC):
@@ -54,6 +53,11 @@ class PatternSet(ABC):
         :return: A randomly chosen pattern.
         """
         return random.choice(self.PATTERNS)
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        raise NotImplementedError
 
 
 class Patterns3x3(PatternSet):
@@ -115,6 +119,10 @@ class Patterns3x3(PatternSet):
          [1, 0, 1],
          [1, 1, 1]],
     ])
+
+    @property
+    def name(self) -> str:
+        return '3x3'
 
 
 class Patterns5x5(PatternSet):
@@ -341,12 +349,16 @@ class Patterns5x5(PatternSet):
          [0, 0, 1, 0, 0],
          [0, 0, 1, 0, 0]],
         # Z
-        [[1, 1, 1, 1, 1],
+        [[0, 1, 1, 1, 0],
          [0, 0, 0, 1, 0],
          [0, 0, 1, 0, 0],
          [0, 1, 0, 0, 0],
-         [1, 1, 1, 1, 1]],
+         [0, 1, 1, 1, 0]],
     ])
+
+    @property
+    def name(self) -> str:
+        return '5x5'
 
 
 class PatternsMNIST(PatternSet):
@@ -370,6 +382,11 @@ class PatternsMNIST(PatternSet):
         self.emnist.select_emnist(dataset)
         self.batch_size = batch_size
         self.images = self._image_gen()
+        self._name = 'emnist' if dataset in {'byclass', 'bymerge', 'balanced'} else dataset
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     def sample(self) -> np.ndarray:
         try:

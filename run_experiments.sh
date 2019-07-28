@@ -1,14 +1,53 @@
-nohup xvfb-run -s "-screen 0 1200x800x24" -n 1 python train.py -model-type acktr -pattern-set 5x5 -updates 100000000 &> nohup.acktr_5x5.out &
-nohup xvfb-run -s "-screen 0 1200x800x24" -n 2 python train.py -model-type ppo -pattern-set 5x5 -updates 100000000 &> nohup.ppo_5x5.out &
+#!/usr/bin/env bash
 
-nohup xvfb-run -s "-screen 0 1200x800x24" -n 3 python train.py -model-type acktr -pattern-set digits -updates 100000000 &> nohup.acktr_digits.out &
-nohup xvfb-run -s "-screen 0 1200x800x24" -n 4 python train.py -model-type ppo -pattern-set digits -updates 100000000 &> nohup.ppo_digits.out &
+n_steps=1000000
 
-nohup xvfb-run -s "-screen 0 1200x800x24" -n 5 python train.py -model-type acktr -policy-type cnn -pattern-set digits -updates 100000000 &> nohup.acktr_cnn_digits.out &
-nohup xvfb-run -s "-screen 0 1200x800x24" -n 6 python train.py -model-type ppo -policy-type cnn -pattern-set digits -updates 100000000 &> nohup.ppo_cnn_digits.out &
+usage="$(basename "$0") [-h] [-n n] -- Utility for running experiments.
+where:
+    -h          Show this help text and exit.
+    -n N_STEPS  How many steps to train each agent for (default: ${n_steps})"
 
-nohup xvfb-run -s "-screen 0 1200x800x24" -n 7 python train.py -model-type acktr -policy-type cnn -pattern-set emnist -updates 100000000 &> nohup.acktr_cnn_emnist.out &
-nohup xvfb-run -s "-screen 0 1200x800x24" -n 8 python train.py -model-type ppo -policy-type cnn -pattern-set emnist -updates 100000000 &> nohup.ppo_cnn_emnist.out &
+
+while getopts ':hn:' option; do
+  case "$option" in
+    h) echo "$usage"
+       exit
+       ;;
+    n) n_steps=$OPTARG
+       ;;
+    :) printf "missing argument for -%s\n" "$OPTARG" >&2
+       echo "$usage" >&2
+       exit 1
+       ;;
+   \?) printf "illegal option: -%s\n" "$OPTARG" >&2
+       echo "$usage" >&2
+       exit 1
+       ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+x_server_num=0
+
+function start_run() {
+    x_server_num=${x_server_num} + 1
+
+    nohup xvfb-run -s "-screen 0 1200x800x24" -n ${x_server_num}  python train.py -model-type $1 -policy-type $2 \
+        -pattern-set $3 -updates ${n_steps} &> nohup.$1_$3.out &
+
+}
+
+start_run acktr mlp 5x5
+start_run ppo mlp 5x5
+
+start_run acktr mlp digits
+start_run ppo mlp digits
+
+start_run acktr cnn digits
+start_run ppo cnn digits
+
+start_run acktr cnn emnist
+start_run ppo cnn emnist
 
 
 nohup tensorboard --logdir tensorboard/ &> nohup.tensorboard.out &
