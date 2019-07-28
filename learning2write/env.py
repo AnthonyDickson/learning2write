@@ -98,29 +98,31 @@ class WritingEnvironment(gym.Env):
     def step(self, action: int):
         # TODO: Refactor this to somewhere more accessible
         penalty_per_step = -1
-        correct_square_reward = 3
-        wrong_pattern_penalty = -100
-        correct_pattern_reward = 100
+        correct_pattern_reward = 10
         out_of_bounds_penalty = -1000
 
-        reward = penalty_per_step
+        reward = 0
         done = False
         info = dict()
 
         if action == FILL_SQUARE:
+            # TODO: Refactor this s.t. the result is cached each step (you can just compute the stats for the current
+            #  step and compare with the cached stats, and then update the stats after that). If the computation of
+            #  precision, recall and f1-score proves expensive then this would halve the cost of computing these stats
+            #  (Θ(2N) -> Θ(N + 2)).
+            p, r, f1 = self._precision_recall_f1(self.reference_pattern, self.pattern)
+
             row, col = self.agent_position
-            was_unfilled = self.pattern[row, col] == 0
             self.pattern[row, col] = 1
 
-            if was_unfilled and self.pattern[row, col] == self.reference_pattern[row, col]:
-                # Agent should only fill in cells that are also filled in the reference pattern
-                reward = correct_square_reward
+            p_, r_, f1_ = self._precision_recall_f1(self.reference_pattern, self.pattern)
+
+            # Reward is the sum of the change in precision, recall and f1 scores.
+            # Moving towards a more accurate copy increases the reward.
+            reward = (p_ - p) + (r_ - r) + (f1_ - f1)
         elif action == QUIT:
-            # Agent should only quit when the pattern has been copied exactly.
-            if np.array_equal(self.pattern, self.reference_pattern):
-                reward = correct_pattern_reward
-            else:
-                reward = wrong_pattern_penalty
+            # Give a bonus proportional to the accuracy of the reproduction of the reference pattern.
+            reward = correct_pattern_reward * (self.pattern == self.reference_pattern).mean()
 
             done = True
         elif 0 <= action < WritingEnvironment.N_DISCRETE_ACTIONS:
@@ -134,6 +136,7 @@ class WritingEnvironment(gym.Env):
             raise ValueError('Unrecognised action: %s' % str(action))
 
         self.steps += 1
+        reward += penalty_per_step
 
         if self.steps >= self.max_steps:
             done = True
@@ -172,6 +175,32 @@ class WritingEnvironment(gym.Env):
         if self.viewer is not None:
             self.viewer.close()
             self.viewer = None
+
+    @staticmethod
+    def _precision_recall_f1(target, prediction) -> Tuple[float, float, float]:
+        """Calculate the precision, recall and f1 metrics for two patterns.
+
+        :param target: The ground truth pattern with binary values.
+        :param prediction: The predicted pattern, also with binary values.
+        :return: A 3-tuple containing the precision, recall and f1-score.
+        """
+        # Use a small value to avoid zero division, zero division is treated as if it produces zero for the sake of
+        # numerical stability and to prevent the whole program from crashing and burning.
+        eps = 1e-128
+
+        true_positives = prediction[target == 1]  # Sometimes this is empty
+        true_positive_rate = true_positives.mean() if true_positives.any() else 0
+
+        false_negative_rate = 1 - true_positive_rate
+
+        false_positives = prediction[target == 0]  # Sometimes this is empty
+        false_positive_rate = false_positives.mean() if false_positives.any() else 0
+
+        precision = true_positive_rate / (true_positive_rate + false_positive_rate + eps)
+        recall = true_positive_rate / (true_positive_rate + false_negative_rate + eps)
+        f1 = 2 * ((precision * recall) / (precision + recall + eps)) - 2 * eps
+
+        return precision, recall, f1
 
     def _get_cell_size(self, target_window_height) -> int:
         """Calculate the cell size.
