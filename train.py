@@ -191,7 +191,7 @@ def main(pattern_set='3x3', emnist_batch_size=1028, model_type='acktr', model_pa
                                                                        model.__class__.__name__.upper(),
                                                                        model.policy.__name__.upper()),
                     reset_num_timesteps=model_path is None, callback=checkpointer)
-        checkpointer.save(model, "checkpoint_last" % pattern_set)
+        checkpointer.save_model(model, 'checkpoint_last')
     except KeyboardInterrupt:
         # TODO: Make this work properly... Currently a SIGINT causes the workers for ACKTR to
         #  raise BrokenPipeError or EOFError.
