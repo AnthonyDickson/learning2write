@@ -12,6 +12,7 @@ from stable_baselines.common.policies import FeedForwardPolicy, MlpPolicy, CnnPo
 from stable_baselines.common.vec_env import SubprocVecEnv
 
 from learning2write import WritingEnvironment, get_pattern_set, EMNIST_PATTERN_SETS, VALID_PATTERN_SETS
+from learning2write.patterns import PatternSet
 
 
 class CheckpointHandler:
@@ -150,6 +151,19 @@ def get_model(env: SubprocVecEnv, model_path: Optional[str], model_type: str, pa
     return model
 
 
+def get_env(n_workers: int, pattern_set: PatternSet) -> SubprocVecEnv:
+    """Create a vectorised writing environment.
+
+    :param n_workers: The number of instances of the environment to run in parallel.
+    :param pattern_set: The pattern set to be used in the environment.
+    :return: The environment instance.
+    """
+    # Give the agent at most just enough moves to cover the grid world exactly.
+    max_steps = 2 * pattern_set.WIDTH * pattern_set.HEIGHT
+
+    return SubprocVecEnv([lambda: WritingEnvironment(pattern_set, max_steps=max_steps) for _ in range(n_workers)])
+
+
 @plac.annotations(
     pattern_set=plac.Annotation('The set of patterns to use in the environment.',
                                 choices=VALID_PATTERN_SETS,
@@ -182,7 +196,7 @@ def main(pattern_set='3x3', emnist_batch_size=1028, model_type='acktr', model_pa
     """Train an A2C-based RL agent on the learning2write environment."""
     pattern_set_ = get_pattern_set(pattern_set, emnist_batch_size)
 
-    env = SubprocVecEnv([lambda: WritingEnvironment(pattern_set_) for _ in range(n_workers)])
+    env = get_env(n_workers, pattern_set_)
     model = get_model(env, model_path, model_type, pattern_set, policy_type, tensorboard_log_path='./tensorboard/')
     checkpointer = get_checkpointer(checkpoint_frequency, checkpoint_path, model, pattern_set)
 
