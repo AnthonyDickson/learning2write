@@ -96,10 +96,8 @@ class WritingEnvironment(gym.Env):
         return self.state
 
     def step(self, action: int):
-        # TODO: Refactor this to somewhere more accessible
         penalty_per_step = -1.0 / (self.rows * self.cols)
-        correct_pattern_reward = 10
-        out_of_bounds_penalty = -1000
+        out_of_bounds_penalty = -10
 
         reward = 0
         done = False
@@ -121,13 +119,8 @@ class WritingEnvironment(gym.Env):
             # Moving towards a more accurate copy increases the reward.
             reward = (p_ - p) + (r_ - r) + (f1_ - f1)
         elif action == QUIT:
-            true_positives = self.pattern[self.reference_pattern == 1]  # Sometimes this is empty
-            true_positive_rate = true_positives.mean() if true_positives.any() else 0
-
-            false_positives = self.pattern[self.reference_pattern == 0]  # Sometimes this is empty
-            false_positive_rate = false_positives.mean() if false_positives.any() else 0
-
-            reward = true_positive_rate - correct_pattern_reward * false_positive_rate
+            _, _, f1 = self._precision_recall_f1(self.reference_pattern, self.pattern)
+            reward = f1 - (1 - f1)
 
             done = True
         elif 0 <= action < WritingEnvironment.N_DISCRETE_ACTIONS:
