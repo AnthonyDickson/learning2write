@@ -14,7 +14,7 @@ VALID_PATTERN_SETS = SIMPLE_PATTERN_SETS.union(EMNIST_PATTERN_SETS)
 def get_pattern_set(pattern_set_name, batch_size=32):
     """Get an instance of a pattern set.
 
-    :param pattern_set_name: The name of a pattern set. Valid names are: '3x3' and '5x5'.
+    :param pattern_set_name: The name of a pattern set. Valid names are those in `VALID_PATTERN_SETS`.
     :param batch_size: In the case of a MNIST based pattern set, batch size is the number of images to keep in memory.
     :return: An instance of the pattern set corresponding to the given name.
     """

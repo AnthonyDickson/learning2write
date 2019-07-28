@@ -127,46 +127,63 @@ def get_policy(policy_type: str, pattern_set: str) -> Tuple[Type[FeedForwardPoli
     return policy, policy_kwargs
 
 
+def get_model(env: SubprocVecEnv, model_path: Optional[str], model_type: str, pattern_set: str, policy_type: str,
+              tensorboard_log_path: str) -> ActorCriticRLModel:
+    """Create the RL agent model, optionally loaded from a previously trained model.
+
+    :param env: The vectorised gym environment (see stable_baselines.common.vec_env.SubprocVecEnv) to use with
+                the model.
+    :param model_path: The path to a saved model. If None a new model is created.
+    :param model_type: The name of the type of model to use.
+    :param pattern_set: The name of the pattern set that the model will be trained on.
+    :param policy_type: The name of the type of policy to use for the model.
+    :param tensorboard_log_path: The path to log training for use with Tensorboard.
+    :return: The instance of the RL agent.
+    """
+    if model_path:
+        model = ActorCriticRLModel.load(model_path, tensorboard_log=tensorboard_log_path)
+        model.set_env(env)
+    else:
+        policy, policy_kwargs = get_policy(policy_type, pattern_set)
+        model = get_model_type(model_type)(policy, env, verbose=1, tensorboard_log=tensorboard_log_path,
+                                           policy_kwargs=policy_kwargs)
+    return model
+
+
 @plac.annotations(
-    model_path=plac.Annotation('Continue training a model specified by a path to a saved model.',
-                               type=str, kind='option'),
+    pattern_set=plac.Annotation('The set of patterns to use in the environment.',
+                                choices=VALID_PATTERN_SETS,
+                                kind='option', type=str),
+    emnist_batch_size=plac.Annotation('If using an EMNIST-based pattern set, how many images that should be loaded and '
+                                      'kept in memory at once.',
+                                      kind='option', type=int),
     model_type=plac.Annotation('The type of model to use. This is ignored if loading a model.',
                                choices=['acktr', 'ppo'],
+                               type=str, kind='option'),
+    model_path=plac.Annotation('Continue training a model specified by a path to a saved model.',
                                type=str, kind='option'),
     policy_type=plac.Annotation('The type of policy network to use. This is ignored if loading a model.',
                                 choices=['mlp', 'cnn'],
                                 type=str, kind='option'),
-    pattern_set=plac.Annotation('The set of patterns to use in the environment.',
-                                choices=VALID_PATTERN_SETS,
-                                kind='option', type=str),
     updates=plac.Annotation('How steps to train the model for.',
                             type=int, kind='option'),
+    n_workers=plac.Annotation('How many workers to train with.',
+                              type=int, kind='option'),
     checkpoint_path=plac.Annotation('The directory to save checkpoint data to. '
                                     'Defaults to \'checkpoints/<pattern-set>/\'',
                                     type=str, kind='option'),
     checkpoint_frequency=plac.Annotation('How often (in number of updates, not timesteps) to save the model during '
                                          'training. Set to zero to disable checkpointing.',
                                          type=int, kind='option'),
-    n_workers=plac.Annotation('How many workers, or cpus, to train with.',
-                              type=int, kind='option')
+
 )
-def main(model_path=None, model_type='acktr', policy_type='mlp', pattern_set='3x3', updates=100000,
-         checkpoint_path=None, checkpoint_frequency=1000,
-         n_workers=4):
-    """Train an ACKTR RL agent on the learning2write environment."""
+def main(pattern_set='3x3', emnist_batch_size=1028, model_type='acktr', model_path=None, policy_type='mlp',
+         updates=100000, n_workers=4, checkpoint_path=None, checkpoint_frequency=1000):
+    """Train an A2C-based RL agent on the learning2write environment."""
+    pattern_set_ = get_pattern_set(pattern_set, emnist_batch_size)
 
-    env = SubprocVecEnv(
-        [lambda: WritingEnvironment(get_pattern_set(pattern_set, batch_size=1028)) for _ in range(n_workers)])
-    tensorboard_log = "./tensorboard/"
-
-    if model_path:
-        model = ActorCriticRLModel.load(model_path, tensorboard_log=tensorboard_log)
-        model.set_env(env)
-    else:
-        policy, policy_kwargs = get_policy(policy_type, pattern_set)
-        model = get_model_type(model_type)(policy, env, verbose=1, tensorboard_log=tensorboard_log,
-                                           policy_kwargs=policy_kwargs)
-
+    env = SubprocVecEnv([lambda: WritingEnvironment(pattern_set_) for _ in range(n_workers)])
+    model = get_model(env, model_path, model_type, pattern_set, policy_type, tensorboard_log_path='./tensorboard/')
     checkpointer = get_checkpointer(checkpoint_frequency, checkpoint_path, model, pattern_set)
 
     try:
@@ -178,8 +195,9 @@ def main(model_path=None, model_type='acktr', policy_type='mlp', pattern_set='3x
     except KeyboardInterrupt:
         # TODO: Make this work properly... Currently a SIGINT causes the workers for ACKTR to
         #  raise BrokenPipeError or EOFError.
-        env.close()
         print('Stopping training...')
+    finally:
+        env.close()
 
 
 if __name__ == '__main__':
