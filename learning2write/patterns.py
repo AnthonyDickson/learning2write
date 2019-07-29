@@ -35,15 +35,23 @@ def get_pattern_set(pattern_set_name, batch_size=32):
 class PatternSet(ABC):
     """A set of patterns and symbols."""
 
-    PATTERNS = np.array([])
-    WIDTH, HEIGHT = 0, 0
+    patterns = np.array([])
+    width, height = 0, 0
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        raise NotImplementedError
+
+    def __getitem__(self, item):
+        return self.patterns[item]
 
     @staticmethod
     def seed(a=None):
         """Seed the random number generator used for sampling patterns.
         This behaves the same as the built-in `random`.
 
-        :param a: The seed to use. If `None` then no seed is used..
+        :param a: The seed to use. If `None` then no seed is used.
         """
         random.seed(a)
 
@@ -52,20 +60,15 @@ class PatternSet(ABC):
 
         :return: A randomly chosen pattern.
         """
-        return random.choice(self.PATTERNS)
-
-    @property
-    @abc.abstractmethod
-    def name(self) -> str:
-        raise NotImplementedError
+        return random.choice(self.patterns)
 
 
 class Patterns3x3(PatternSet):
     """A set of 3x3 patterns, mostly consisting of letters and numbers."""
 
-    WIDTH = HEIGHT = 3
+    width = height = 3
 
-    PATTERNS = np.array([
+    patterns = np.array([
         # Nothing
         [[0, 0, 0],
          [0, 0, 0],
@@ -128,9 +131,9 @@ class Patterns3x3(PatternSet):
 class Patterns5x5(PatternSet):
     """A set of 5x5 patterns, mostly consisting of letters and numbers."""
 
-    WIDTH = HEIGHT = 5
+    width = height = 5
 
-    PATTERNS = np.array([
+    patterns = np.array([
         # Nothing
         [[0, 0, 0, 0, 0],
          [0, 0, 0, 0, 0],
@@ -362,7 +365,7 @@ class Patterns5x5(PatternSet):
 
 
 class PatternsMNIST(PatternSet):
-    WIDTH = HEIGHT = 28
+    width = height = 28
 
     def __init__(self, dataset, batch_size=32):
         """Create a new EMNIST pattern generator.
@@ -399,7 +402,7 @@ class PatternsMNIST(PatternSet):
     def _image_gen(self):
         for images, _ in self.emnist.load_training_in_batches(self.batch_size):
             random.shuffle(images)
-            images = images.reshape(-1, 28, 28)  # shape of EMNIST images
+            self.patterns = images.reshape(-1, self.width, self.height)
 
-            for image in images:
+            for image in self.patterns:
                 yield image

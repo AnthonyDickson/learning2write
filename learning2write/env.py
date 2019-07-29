@@ -42,8 +42,6 @@ class WritingEnvironment(gym.Env):
 
         # Environment State
         self.pattern_set = pattern_set if pattern_set else Patterns3x3()
-        self.rows = self.pattern_set.HEIGHT
-        self.cols = self.pattern_set.WIDTH
         self.pattern_shape = (self.rows, self.cols)
         self.pattern: np.ndarray = np.zeros(self.pattern_shape)
         self.reference_pattern: np.ndarray = np.zeros(self.pattern_shape)
@@ -71,6 +69,14 @@ class WritingEnvironment(gym.Env):
         pos[row, col] = 1
 
         return np.stack((self.pattern, self.reference_pattern, pos), axis=2)  # create HWC tensor
+
+    @property
+    def rows(self):
+        return self.pattern_set.height
+
+    @property
+    def cols(self):
+        return self.pattern_set.width
 
     @property
     def should_quit(self) -> bool:

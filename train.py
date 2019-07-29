@@ -81,7 +81,7 @@ def get_env(n_workers: int, pattern_set: PatternSet) -> SubprocVecEnv:
     :return: The environment instance.
     """
     # Give the agent at most just enough moves to cover the grid world exactly.
-    max_steps = 2 * pattern_set.WIDTH * pattern_set.HEIGHT
+    max_steps = 2 * pattern_set.width * pattern_set.height
 
     return SubprocVecEnv([lambda: WritingEnvironment(pattern_set, max_steps=max_steps) for _ in range(n_workers)])
 
