@@ -193,8 +193,8 @@ def get_checkpointer(checkpoint_frequency: int, checkpoint_path: Optional[str], 
     policy_type=plac.Annotation('The type of policy network to use. This is ignored if loading a model.',
                                 choices=['mlp', 'cnn'],
                                 type=str, kind='option'),
-    updates=plac.Annotation('How steps to train the model for.',
-                            type=int, kind='option'),
+    steps=plac.Annotation('How steps to train the model for.',
+                          type=int, kind='option'),
     n_workers=plac.Annotation('How many workers to train with.',
                               type=int, kind='option'),
     checkpoint_path=plac.Annotation('The directory to save checkpoint data to. '
@@ -206,7 +206,7 @@ def get_checkpointer(checkpoint_frequency: int, checkpoint_path: Optional[str], 
 
 )
 def main(pattern_set='3x3', emnist_batch_size=1028, model_type='acktr', model_path=None, policy_type='mlp',
-         updates=100000, n_workers=4, checkpoint_path=None, checkpoint_frequency=1000):
+         steps=100000, n_workers=4, checkpoint_path=None, checkpoint_frequency=1000):
     """Train an A2C-based RL agent on the learning2write environment."""
     pattern_set_ = get_pattern_set(pattern_set, emnist_batch_size)
 
@@ -215,9 +215,9 @@ def main(pattern_set='3x3', emnist_batch_size=1028, model_type='acktr', model_pa
     checkpointer = get_checkpointer(checkpoint_frequency, checkpoint_path, model, pattern_set)
 
     try:
-        model.learn(total_timesteps=updates, tb_log_name='%s_%s_%s' % (pattern_set.upper(),
-                                                                       model.__class__.__name__.upper(),
-                                                                       model.policy.__name__.upper()),
+        model.learn(total_timesteps=steps, tb_log_name='%s_%s_%s' % (pattern_set.upper(),
+                                                                     model.__class__.__name__.upper(),
+                                                                     model.policy.__name__.upper()),
                     reset_num_timesteps=model_path is None, callback=checkpointer)
         checkpointer.save_model(model, 'checkpoint_last')
     except KeyboardInterrupt:

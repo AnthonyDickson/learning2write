@@ -2,6 +2,7 @@ from datetime import datetime
 from statistics import mean
 from typing import Type
 
+import numpy as np
 import plac
 from stable_baselines import ACKTR, PPO2
 from stable_baselines.common import ActorCriticRLModel
@@ -49,14 +50,17 @@ def main(model_path, model_type, pattern_set='3x3', max_updates=1000, max_steps=
         episode = 0
         updates = 0
         rewards = []
+        n_correct = 0
 
         while updates < max_updates:
             episode += 1
-            steps, reward = run_episode(env, episode, fps, updates, max_updates, max_steps, model)
+            steps, reward, is_correct = run_episode(env, episode, fps, updates, max_updates, max_steps, model)
             rewards.append(reward)
             updates += steps
-            print('\rEpisode %02d - Steps: %d - Episode Reward: %.2f - Smoothed Avg. Reward: %.2f'
-                  % (episode, steps, reward, mean(rewards[-1 - min(len(rewards) - 1, 100):])) + ' ' * 40)
+            n_correct += 1 if is_correct else 0
+
+            print('\rEpisode %02d - Steps: %d - Return: %.2f - Return Moving Avg.: %.2f - Accuracy: %.2f'
+                  % (episode, steps, reward, mean(rewards[-1 - min(len(rewards) - 1, 100):]), n_correct / episode) + ' ' * 40)
 
             if env.should_quit:
                 break
@@ -73,8 +77,8 @@ def run_episode(env, episode, fps, updates, max_updates, max_steps, model):
         observation, reward, done, _ = env.step(action)
         rewards.append(reward)
 
-        print('\rEpisode %02d - Step %02d - Reward: %.2f - Cumulative Reward: %.2f - Mean Reward: %.2f'
-              % (episode, step + 1, reward, sum(rewards), mean(rewards)), end='')
+        print('\rEpisode %02d - Step %02d - Reward: %.2f - Mean Reward: %.2f - Return: %.2f'
+              % (episode, step + 1, reward, mean(rewards), sum(rewards)), end='')
         env.render()
         env.wait(1.0 / fps - (datetime.now() - start).total_seconds())  # sync steps to framerate (`fps`)
         updates += 1
@@ -82,7 +86,7 @@ def run_episode(env, episode, fps, updates, max_updates, max_steps, model):
         if done or env.should_quit or updates >= max_updates:
             break
 
-    return step + 1, sum(rewards)
+    return step + 1, sum(rewards), np.array_equal(env.pattern, env.reference_pattern)
 
 
 if __name__ == '__main__':

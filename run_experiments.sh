@@ -34,7 +34,7 @@ function start_run() {
     x_server_num=$((x_server_num+1))
 
     nohup xvfb-run -e /dev/stdout -s "-screen 0 1200x800x24" -n ${x_server_num} \
- 	python train.py -model-type $1 -policy-type $2 -pattern-set $3 -updates ${n_steps} \
+ 	python train.py -model-type $1 -policy-type $2 -pattern-set $3 -steps ${n_steps} \
 	&> logs/nohup.$1_$2_$3.out &
 
 }
