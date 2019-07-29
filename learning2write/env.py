@@ -96,31 +96,25 @@ class WritingEnvironment(gym.Env):
         return self.state
 
     def step(self, action: int):
-        penalty_per_step = -1.0 / (self.rows * self.cols)
-        out_of_bounds_penalty = -10
+        penalty_per_step = -1
 
-        reward = 0
+        reward = penalty_per_step
         done = False
         info = dict()
 
         if action == FILL_SQUARE:
-            # TODO: Refactor this s.t. the result is cached each step (you can just compute the stats for the current
-            #  step and compare with the cached stats, and then update the stats after that). If the computation of
-            #  precision, recall and f1-score proves expensive then this would halve the cost of computing these stats
-            #  (Θ(2N) -> Θ(N + 2)).
-            p, r, f1 = self._precision_recall_f1(self.reference_pattern, self.pattern)
-
             row, col = self.agent_position
-            self.pattern[row, col] = 1
-
-            p_, r_, f1_ = self._precision_recall_f1(self.reference_pattern, self.pattern)
-
-            # Reward is the sum of the change in precision, recall and f1 scores.
-            # Moving towards a more accurate copy increases the reward.
-            reward = (p_ - p) + (r_ - r) + (f1_ - f1)
+            if self.pattern[row, col] == 0 and self.reference_pattern[row, col] == 1:
+                self.pattern[row, col] = 1
+                reward = 10
+            else:
+                reward = -100
+                done = True
         elif action == QUIT:
-            _, _, f1 = self._precision_recall_f1(self.reference_pattern, self.pattern)
-            reward = f1 - (1 - f1)
+            if np.array_equal(self.pattern, self.reference_pattern):
+                reward = 100
+            else:
+                reward = -100
 
             done = True
         elif 0 <= action < WritingEnvironment.N_DISCRETE_ACTIONS:
@@ -128,13 +122,12 @@ class WritingEnvironment(gym.Env):
             move_was_valid = self._move(action)
 
             if not move_was_valid:
-                reward = out_of_bounds_penalty
+                reward = -100
                 done = True
         else:
             raise ValueError('Unrecognised action: %s' % str(action))
 
         self.steps += 1
-        reward += penalty_per_step
 
         if self.steps >= self.max_steps:
             done = True

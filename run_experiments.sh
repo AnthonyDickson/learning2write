@@ -39,16 +39,19 @@ function start_run() {
 
 }
 
+start_run acktr mlp 3x3
+start_run ppo mlp 3x3
+
 start_run acktr mlp 5x5
 start_run ppo mlp 5x5
 
 start_run acktr mlp digits
 start_run ppo mlp digits
+start_run ppo emnistmlp digits
+start_run ppo cnn digits
 
 start_run acktr mlp emnist
-start_run ppo mlp emnist
-
-start_run acktr cnn emnist
+start_run ppo emnistmlp emnist
 start_run ppo cnn emnist
 
 

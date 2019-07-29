@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional, Type, Tuple
 
 import numpy as np
-import plac as plac
+import plac
 import tensorflow as tf
 from stable_baselines import ACKTR, PPO2
 from stable_baselines.a2c.utils import conv, conv_to_fc, linear
@@ -60,8 +60,7 @@ class CheckpointHandler:
 class EmnistMlpPolicy(FeedForwardPolicy):
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, **kwargs):
         super().__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch,
-                         net_arch=[512, 512, {'vf': [64], 'pi': [64]}],
-                         act_fun=tf.keras.activations.selu,
+                         net_arch=[256, 64, {'vf': [16], 'pi': [16]}],
                          feature_extraction='mlp',
                          **kwargs)
 
@@ -110,14 +109,13 @@ def get_policy(policy_type: str, pattern_set: PatternSet) -> Tuple[Type[FeedForw
     :return: The class corresponding to the name and the relevant kwargs dictionary.
              Raises ValueError if the name is not recognised.
     """
+    policy_kwargs = dict()
+
     if policy_type == 'mlp':
-        if pattern_set.name in EMNIST_PATTERN_SETS:
-            policy = EmnistMlpPolicy
-        else:
-            policy = MlpPolicy
-
-        policy_kwargs = dict()
-
+        policy = MlpPolicy
+    elif policy_type == 'emnistmlp':
+        assert pattern_set.name in EMNIST_PATTERN_SETS, 'EmnistMlpPolicy policy must be used with an EMNIST pattern set.'
+        policy = EmnistMlpPolicy
     elif policy_type == 'cnn':
         assert pattern_set.name in EMNIST_PATTERN_SETS, 'A CNN policy must be used with an EMNIST pattern set.'
         policy = CnnPolicy
@@ -150,7 +148,7 @@ def emnist_cnn_feature_extractor(scaled_images, **kwargs):
     :param kwargs: (dict) Extra keywords parameters for the convolutional layers of the CNN
     :return: (TensorFlow Tensor) The CNN output layer
     """
-    activ = tf.nn.relu
+    activ = tf.nn.selu
     layer_1 = activ(conv(scaled_images, 'c1', n_filters=32, filter_size=7, stride=4, init_scale=np.sqrt(2), **kwargs))
     layer_2 = activ(conv(layer_1, 'c2', n_filters=64, filter_size=5, stride=1, init_scale=np.sqrt(2), **kwargs))
     layer_3 = conv_to_fc(layer_2)
@@ -164,6 +162,7 @@ def get_checkpointer(checkpoint_frequency: int, checkpoint_path: Optional[str], 
     :param checkpoint_frequency: How often to save checkpoints. Checkpoints are disabled if this is less than one.
     :param checkpoint_path: Where to save the checkpoints. If `None` then a path is automatically generated.
     :param model: The model to save training progress for.
+    :param policy_type: The name of the type of policy to use for the model.
     :param pattern_set: The name of the set of patterns that the model will be trained on.
     :return: A CheckpointHandler if `checkpoint_checkpoint_frequency` > 0, None otherwise.
     """
@@ -192,7 +191,7 @@ def get_checkpointer(checkpoint_frequency: int, checkpoint_path: Optional[str], 
     model_path=plac.Annotation('Continue training a model specified by a path to a saved model.',
                                type=str, kind='option'),
     policy_type=plac.Annotation('The type of policy network to use. This is ignored if loading a model.',
-                                choices=['mlp', 'cnn'],
+                                choices=['mlp', 'emnistmlp', 'rnn', 'cnn'],
                                 type=str, kind='option'),
     steps=plac.Annotation('How steps to train the model for.',
                           type=int, kind='option'),
@@ -206,8 +205,8 @@ def get_checkpointer(checkpoint_frequency: int, checkpoint_path: Optional[str], 
                                          type=int, kind='option'),
 
 )
-def main(pattern_set='3x3', emnist_batch_size=1028, model_type='acktr', model_path=None, policy_type='mlp',
-         steps=100000, n_workers=4, checkpoint_path=None, checkpoint_frequency=1000):
+def main(pattern_set='3x3', emnist_batch_size=512, model_type='acktr', model_path=None, policy_type='mlp',
+         steps=1000000, n_workers=4, checkpoint_path=None, checkpoint_frequency=10000):
     """Train an A2C-based RL agent on the learning2write environment."""
     pattern_set_ = get_pattern_set(pattern_set, emnist_batch_size)
 
