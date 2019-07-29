@@ -67,8 +67,8 @@ skip to step 3.
     python train.py -steps 1000000
     ```
     Training the agent for more steps usually provides better results :)
-    An ACKTR agent requires roughly 5~10 million steps for 3x3 patterns,
-    and 10~20 million steps for 5x5 patterns. Not sure for the EMNIST dataset, 
+    An ACKTR agent requires roughly 5 ~ 10 million steps for 3x3 patterns,
+    and 10 ~ 20 million steps for 5x5 patterns. Not sure for the EMNIST dataset, 
     but probably a lot more :|
     
 6.  Test a previously trained model:
