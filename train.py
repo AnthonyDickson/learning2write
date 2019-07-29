@@ -53,7 +53,7 @@ class CheckpointHandler:
         """
         checkpoint = os.path.join(self.checkpoint_path,
                                   checkpoint_name if checkpoint_name else 'checkpoint_%05d' % self._updates)
-        print('[%s] Saving checkpoint to \'%s\'...' % (datetime.now(), checkpoint))
+        print('[%s] Saving checkpoint \'%s.pkl\'...' % (datetime.now(), checkpoint))
         model.save(checkpoint)
 
 
@@ -158,7 +158,7 @@ def emnist_cnn_feature_extractor(scaled_images, **kwargs):
 
 
 def get_checkpointer(checkpoint_frequency: int, checkpoint_path: Optional[str], model: ActorCriticRLModel,
-                     pattern_set: str) -> Optional[CheckpointHandler]:
+                     policy_type: str, pattern_set: str) -> Optional[CheckpointHandler]:
     """Create a CheckpointHandler based on certain parameters.
 
     :param checkpoint_frequency: How often to save checkpoints. Checkpoints are disabled if this is less than one.
@@ -169,9 +169,10 @@ def get_checkpointer(checkpoint_frequency: int, checkpoint_path: Optional[str], 
     """
     if checkpoint_frequency > 0:
         timestamp = ''.join(map(lambda s: '%02d' % s, datetime.now().utctimetuple()))
-        path = checkpoint_path if checkpoint_path else 'checkpoints/%s_%s_%s/' % (model.__class__.__name__.lower(),
-                                                                                  pattern_set,
-                                                                                  timestamp)
+        path = checkpoint_path if checkpoint_path else 'checkpoints/%s_%s_%s_%s/' % (model.__class__.__name__.lower(),
+                                                                                     policy_type,
+                                                                                     pattern_set,
+                                                                                     timestamp)
         checkpointer = CheckpointHandler(checkpoint_frequency, path)
     else:
         checkpointer = None
@@ -212,7 +213,7 @@ def main(pattern_set='3x3', emnist_batch_size=1028, model_type='acktr', model_pa
 
     env = get_env(n_workers, pattern_set_)
     model = get_model(env, model_path, model_type, pattern_set_, policy_type, tensorboard_log_path='./tensorboard/')
-    checkpointer = get_checkpointer(checkpoint_frequency, checkpoint_path, model, pattern_set)
+    checkpointer = get_checkpointer(checkpoint_frequency, checkpoint_path, model, policy_type, pattern_set)
 
     try:
         model.learn(total_timesteps=steps, tb_log_name='%s_%s_%s' % (pattern_set.upper(),
