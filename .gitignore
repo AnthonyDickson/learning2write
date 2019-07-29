@@ -112,3 +112,5 @@ checkpoints/
 *.pkl
 #datasets
 emnist_data/
+# logging
+logs/

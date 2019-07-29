@@ -93,7 +93,7 @@ def get_model(env: SubprocVecEnv, model_path: Optional[str], model_type: str, pa
     :return: The instance of the RL agent.
     """
     if model_path:
-        model = ActorCriticRLModel.load(model_path, tensorboard_log=tensorboard_log_path)
+        model = get_model_type(model_type).load(model_path, tensorboard_log=tensorboard_log_path)
         model.set_env(env)
     else:
         policy, policy_kwargs = get_policy(policy_type, pattern_set)
