@@ -79,6 +79,8 @@ skip to step 3.
     pattern on the left, and the agent's drawing and 
     its location (the big red dot).
     
+    There are a couple of pretrained models in the `models/` directory.
+    
 7.  You can see the help text for these scripts by adding the flag `-h` or `--help`.
 
 
