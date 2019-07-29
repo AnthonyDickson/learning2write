@@ -73,7 +73,7 @@ skip to step 3.
     
 6.  Test a previously trained model:
     ```bash
-    python test.py models/acktr_mlp_5x5.pkl -model-type acktr
+    python test.py models/acktr_mlp_5x5.pkl acktr
     ```
     This opens a window that displays the environment and the reference/target 
     pattern on the left, and the agent's drawing and 
