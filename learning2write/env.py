@@ -104,12 +104,13 @@ class WritingEnvironment(gym.Env):
 
         if action == FILL_SQUARE:
             row, col = self.agent_position
-            if self.pattern[row, col] == 0 and self.reference_pattern[row, col] == 1:
+            if self.pattern[row, col] == 0:
                 self.pattern[row, col] = 1
-                reward = 10
+
+                if self.reference_pattern[row, col] == 1:
+                    reward = 10
             else:
-                reward = -100
-                done = True
+                reward = -2
         elif action == QUIT:
             if np.array_equal(self.pattern, self.reference_pattern):
                 reward = 100

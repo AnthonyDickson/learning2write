@@ -43,16 +43,16 @@ start_run acktr mlp 3x3
 start_run ppo mlp 3x3
 
 start_run acktr mlp 5x5
+start_run acktr mlp5x5 5x5
+start_run acktr cnn 5x5
 start_run ppo mlp 5x5
+start_run ppo mlp5x5 5x5
+start_run ppo cnn 5x5
 
-start_run acktr mlp digits
-start_run ppo mlp digits
-start_run ppo emnistmlp digits
-start_run ppo cnn digits
-
-start_run acktr mlp emnist
-start_run ppo emnistmlp emnist
-start_run ppo cnn emnist
+start_run acktr mlp mnist
+start_run ppo mlp mnist
+start_run ppo mlpemnist mnist
+start_run ppo cnn mnist
 
 
 nohup tensorboard --logdir tensorboard/ &> logs/nohup.tensorboard.out &

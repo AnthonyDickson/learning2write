@@ -57,7 +57,15 @@ class CheckpointHandler:
         model.save(checkpoint)
 
 
-class EmnistMlpPolicy(FeedForwardPolicy):
+class MlpPolicy5x5(FeedForwardPolicy):
+    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, **kwargs):
+        super().__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch,
+                         net_arch=[64, {'vf': [64, 64], 'pi': [64, 64]}],
+                         feature_extraction='mlp',
+                         **kwargs)
+
+
+class MlpPolicyEmnist(FeedForwardPolicy):
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, **kwargs):
         super().__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch,
                          net_arch=[256, 64, {'vf': [16], 'pi': [16]}],
@@ -113,13 +121,22 @@ def get_policy(policy_type: str, pattern_set: PatternSet) -> Tuple[Type[FeedForw
 
     if policy_type == 'mlp':
         policy = MlpPolicy
-    elif policy_type == 'emnistmlp':
-        assert pattern_set.name in EMNIST_PATTERN_SETS, 'EmnistMlpPolicy policy must be used with an EMNIST pattern set.'
-        policy = EmnistMlpPolicy
+    elif policy_type == 'mlp5x5':
+        policy = MlpPolicy5x5
+    elif policy_type == 'mlpemnist':
+        assert pattern_set.name in EMNIST_PATTERN_SETS, 'MlpPolicyEmnist policy must be used with an EMNIST pattern set.'
+        policy = MlpPolicyEmnist
     elif policy_type == 'cnn':
-        assert pattern_set.name in EMNIST_PATTERN_SETS, 'A CNN policy must be used with an EMNIST pattern set.'
+        assert pattern_set.name != '3x3', 'A CNN policy can only be used with the following pattern sets: %s.' \
+                                          % (['3x3'] + list(EMNIST_PATTERN_SETS))
+
+        if pattern_set.name in EMNIST_PATTERN_SETS:
+            cnn_feature_extractor = emnist_cnn_feature_extractor
+        else:
+            cnn_feature_extractor = small_cnn_feature_extractor
+
         policy = CnnPolicy
-        policy_kwargs = {'cnn_extractor': emnist_cnn_feature_extractor}
+        policy_kwargs = {'cnn_extractor': cnn_feature_extractor}
     else:
         raise 'Unrecognised policy type \'%s\'' % policy_type
     return policy, policy_kwargs
@@ -140,6 +157,22 @@ def get_model_type(model_type) -> Type[ActorCriticRLModel]:
         raise ValueError('Unrecognised model type \'%s\'' % model_type)
 
 
+def small_cnn_feature_extractor(scaled_images, **kwargs):
+    """
+    CNN feature extractor for 5x5 images.
+
+    :param scaled_images: (TensorFlow Tensor) Image input placeholder
+    :param kwargs: (dict) Extra keywords parameters for the convolutional layers of the CNN
+    :return: (TensorFlow Tensor) The CNN output layer
+    """
+    activ = tf.nn.selu
+    layer_1 = activ(conv(scaled_images, 'c1', n_filters=16, filter_size=3, stride=1, init_scale=np.sqrt(2), **kwargs))
+    layer_2 = activ(conv(layer_1, 'c2', n_filters=32, filter_size=3, stride=1, init_scale=np.sqrt(2), **kwargs))
+    layer_3 = conv_to_fc(layer_2)
+
+    return activ(linear(layer_3, 'fc1', n_hidden=64, init_scale=np.sqrt(2)))
+
+
 def emnist_cnn_feature_extractor(scaled_images, **kwargs):
     """
     CNN feature extractor for EMNIST images (28x28).
@@ -152,6 +185,7 @@ def emnist_cnn_feature_extractor(scaled_images, **kwargs):
     layer_1 = activ(conv(scaled_images, 'c1', n_filters=32, filter_size=7, stride=4, init_scale=np.sqrt(2), **kwargs))
     layer_2 = activ(conv(layer_1, 'c2', n_filters=64, filter_size=5, stride=1, init_scale=np.sqrt(2), **kwargs))
     layer_3 = conv_to_fc(layer_2)
+
     return activ(linear(layer_3, 'fc1', n_hidden=128, init_scale=np.sqrt(2)))
 
 
@@ -191,7 +225,7 @@ def get_checkpointer(checkpoint_frequency: int, checkpoint_path: Optional[str], 
     model_path=plac.Annotation('Continue training a model specified by a path to a saved model.',
                                type=str, kind='option'),
     policy_type=plac.Annotation('The type of policy network to use. This is ignored if loading a model.',
-                                choices=['mlp', 'emnistmlp', 'rnn', 'cnn'],
+                                choices=['mlp', 'mlp5x5', 'mlpemnist', 'cnn'],
                                 type=str, kind='option'),
     steps=plac.Annotation('How steps to train the model for.',
                           type=int, kind='option'),
