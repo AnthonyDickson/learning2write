@@ -1,35 +1,18 @@
 from datetime import datetime
 from statistics import mean
-from typing import Type
 
 import numpy as np
 import plac
-from stable_baselines import ACKTR, PPO2
-from stable_baselines.common import ActorCriticRLModel
 
 from learning2write import get_pattern_set, VALID_PATTERN_SETS
 from learning2write.env import WritingEnvironment
-
-
-def get_model_type(model_type) -> Type[ActorCriticRLModel]:
-    """Translate a model name from a string to a class type.
-
-    :param model_type: The name of the type of model.
-    :return: The class corresponding to the name.
-             Raises ValueError if the name is not recognised.
-    """
-    if model_type == 'acktr':
-        return ACKTR
-    if model_type == 'ppo':
-        return PPO2
-    else:
-        raise ValueError('Unrecognised model type \'%s\'' % model_type)
+from train import get_model_type
 
 
 @plac.annotations(
     model_path=plac.Annotation('The path and the filename of the saved model to run.',
                                type=str, kind='positional'),
-    model_type=plac.Annotation('The type of model that is being loaded.', choices=['acktr', 'ppo'],
+    model_type=plac.Annotation('The type of model that is being loaded.', choices=['acktr', 'acer', 'ppo'],
                                type=str, kind='positional'),
     pattern_set=plac.Annotation('The set of patterns to use in the environment.', choices=VALID_PATTERN_SETS,
                                 kind='option', type=str),
@@ -54,13 +37,16 @@ def main(model_path, model_type, pattern_set='3x3', max_updates=1000, max_steps=
 
         while updates < max_updates:
             episode += 1
-            steps, reward, is_correct = run_episode(env, episode, fps, updates, max_updates, max_steps, model)
+            steps, reward, mean_reward, is_correct = run_episode(env, episode, fps, updates, max_updates, max_steps,
+                                                                 model)
             rewards.append(reward)
             updates += steps
             n_correct += 1 if is_correct else 0
 
-            print('\rEpisode %02d - Steps: %d - Return: %.2f - Return Moving Avg.: %.2f - Accuracy: %.2f'
-                  % (episode, steps, reward, mean(rewards[-1 - min(len(rewards) - 1, 100):]), n_correct / episode) + ' ' * 40)
+            print('\rEpisode %02d - Steps: %d - Mean Reward: %.2f - Return: %.2f - Return Moving Avg.: %.2f - '
+                  'Accuracy: %.2f'
+                  % (episode, steps, mean_reward, reward, mean(rewards[-1 - min(len(rewards) - 1, 100):]),
+                     n_correct / episode) + ' ' * 40)
 
             if env.should_quit:
                 break
@@ -86,7 +72,7 @@ def run_episode(env, episode, fps, updates, max_updates, max_steps, model):
         if done or env.should_quit or updates >= max_updates:
             break
 
-    return step + 1, sum(rewards), np.array_equal(env.pattern, env.reference_pattern)
+    return step + 1, sum(rewards), mean(rewards), np.array_equal(env.pattern, env.reference_pattern)
 
 
 if __name__ == '__main__':

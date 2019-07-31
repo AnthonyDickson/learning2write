@@ -39,22 +39,19 @@ function start_run() {
 
 }
 
+start_run acer mlp 3x3
 start_run acktr mlp 3x3
 start_run ppo mlp 3x3
-
+start_run acer mlp 5x5
+start_run acer mlp5x5 5x5
+start_run acer cnn 5x5
 start_run acktr mlp 5x5
-start_run acktr mlp5x5 5x5
-start_run acktr cnn 5x5
 start_run ppo mlp 5x5
-start_run ppo mlp5x5 5x5
-start_run ppo cnn 5x5
-
-start_run acktr mlp mnist
-start_run ppo mlp mnist
-start_run ppo mlpemnist mnist
-start_run ppo cnn mnist
+start_run acer mlp mnist
+start_run acer mlpemnist mnist
+start_run acer cnn mnist
 
 
-nohup tensorboard --logdir tensorboard/ &> logs/nohup.tensorboard.out &
+nohup tensorboard --logdir tensorboard/ &> logs/tensorboard &
 
 

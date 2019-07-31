@@ -5,7 +5,7 @@ from typing import Optional, Type, Tuple
 import numpy as np
 import plac
 import tensorflow as tf
-from stable_baselines import ACKTR, PPO2
+from stable_baselines import ACKTR, PPO2, ACER
 from stable_baselines.a2c.utils import conv, conv_to_fc, linear
 from stable_baselines.common import ActorCriticRLModel
 from stable_baselines.common.policies import FeedForwardPolicy, MlpPolicy, CnnPolicy
@@ -87,7 +87,7 @@ def get_env(n_workers: int, pattern_set: PatternSet) -> SubprocVecEnv:
 
 
 def get_model(env: SubprocVecEnv, model_path: Optional[str], model_type: str, pattern_set: PatternSet, policy_type: str,
-              tensorboard_log_path: str) -> ActorCriticRLModel:
+              tensorboard_log_path: str, acer_buffer_size=100000) -> ActorCriticRLModel:
     """Create the RL agent model, optionally loaded from a previously trained model.
 
     :param env: The vectorised gym environment (see stable_baselines.common.vec_env.SubprocVecEnv) to use with
@@ -97,11 +97,18 @@ def get_model(env: SubprocVecEnv, model_path: Optional[str], model_type: str, pa
     :param pattern_set: The pattern set that the model will be trained on.
     :param policy_type: The name of the type of policy to use for the model.
     :param tensorboard_log_path: The path to log training for use with Tensorboard.
+    :param acer_buffer_size: The size of the experience replay buffer to use with ACER models.
     :return: The instance of the RL agent.
     """
     if model_path:
-        model = get_model_type(model_type).load(model_path, tensorboard_log=tensorboard_log_path)
+        model = get_model_type(model_type).load(model_path, tensorboard_log=tensorboard_log_path,
+                                                _init_setup_model=False)
         model.set_env(env)
+
+        if isinstance(model, ACER):
+            model.buffer_size = acer_buffer_size
+
+        model.setup_model()
     else:
         policy, policy_kwargs = get_policy(policy_type, pattern_set)
         model = get_model_type(model_type)(policy, env, verbose=1, tensorboard_log=tensorboard_log_path,
@@ -151,8 +158,10 @@ def get_model_type(model_type) -> Type[ActorCriticRLModel]:
     """
     if model_type == 'acktr':
         return ACKTR
-    if model_type == 'ppo':
+    elif model_type == 'ppo':
         return PPO2
+    elif model_type == 'acer':
+        return ACER
     else:
         raise ValueError('Unrecognised model type \'%s\'' % model_type)
 
@@ -220,7 +229,7 @@ def get_checkpointer(checkpoint_frequency: int, checkpoint_path: Optional[str], 
                                       'kept in memory at once.',
                                       kind='option', type=int),
     model_type=plac.Annotation('The type of model to use. This is ignored if loading a model.',
-                               choices=['acktr', 'ppo'],
+                               choices=['acktr', 'acer', 'ppo'],
                                type=str, kind='option'),
     model_path=plac.Annotation('Continue training a model specified by a path to a saved model.',
                                type=str, kind='option'),

@@ -114,3 +114,5 @@ checkpoints/
 emnist_data/
 # logging
 logs/
+
+!.idea/

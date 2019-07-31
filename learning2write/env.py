@@ -103,6 +103,9 @@ class WritingEnvironment(gym.Env):
 
     def step(self, action: int):
         penalty_per_step = -1
+        correct_fill_reward = 10
+        correct_pattern_reward = 100
+        out_of_bounds_penalty = -1000
 
         reward = penalty_per_step
         done = False
@@ -110,18 +113,21 @@ class WritingEnvironment(gym.Env):
 
         if action == FILL_SQUARE:
             row, col = self.agent_position
+
             if self.pattern[row, col] == 0:
+                _, _, f1 = self._precision_recall_f1(self.reference_pattern, self.pattern)
+
                 self.pattern[row, col] = 1
 
-                if self.reference_pattern[row, col] == 1:
-                    reward = 10
-            else:
-                reward = -2
+                _, _, f1_ = self._precision_recall_f1(self.reference_pattern, self.pattern)
+
+                # Reward is proportional to the f1 score.
+                # Moving towards a more accurate copy increases the reward.
+                reward = (f1_ - f1) * correct_fill_reward
         elif action == QUIT:
-            if np.array_equal(self.pattern, self.reference_pattern):
-                reward = 100
-            else:
-                reward = -100
+            # Give a bonus proportional to the accuracy of the reproduction of the reference pattern.
+            _, _, f1 = self._precision_recall_f1(self.reference_pattern, self.pattern)
+            reward = f1 * correct_pattern_reward - (1 - f1) * correct_pattern_reward
 
             done = True
         elif 0 <= action < WritingEnvironment.N_DISCRETE_ACTIONS:
@@ -129,7 +135,7 @@ class WritingEnvironment(gym.Env):
             move_was_valid = self._move(action)
 
             if not move_was_valid:
-                reward = -100
+                reward = out_of_bounds_penalty
                 done = True
         else:
             raise ValueError('Unrecognised action: %s' % str(action))
