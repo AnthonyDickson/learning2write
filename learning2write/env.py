@@ -105,7 +105,7 @@ class WritingEnvironment(gym.Env):
         penalty_per_step = -1
         correct_fill_reward = 10
         correct_pattern_reward = 100
-        out_of_bounds_penalty = -1000
+        out_of_bounds_penalty = -100
 
         reward = penalty_per_step
         done = False

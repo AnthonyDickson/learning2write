@@ -34,7 +34,7 @@ function start_run() {
     x_server_num=$((x_server_num+1))
 
     nohup xvfb-run -e /dev/stdout -s "-screen 0 1200x800x24" -n ${x_server_num} \
- 	python train.py -model-type $1 -policy-type $2 -pattern-set $3 -steps ${n_steps} \
+ 	python train.py -model-type $1 -policy-type $2 -pattern-set $3 -rotate-patterns -steps ${n_steps} \
 	&> logs/$1_$2_$3 &
 
 }
@@ -47,7 +47,6 @@ start_run acer mlp5x5 5x5
 start_run acer cnn 5x5
 start_run acktr mlp 5x5
 start_run ppo mlp 5x5
-start_run acer mlp mnist
 start_run acer mlpemnist mnist
 start_run acer cnn mnist
 

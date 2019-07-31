@@ -11,10 +11,11 @@ EMNIST_PATTERN_SETS = {'mnist', 'digits', 'letters', 'emnist'}
 VALID_PATTERN_SETS = SIMPLE_PATTERN_SETS.union(EMNIST_PATTERN_SETS)
 
 
-def get_pattern_set(pattern_set_name, batch_size=32):
+def get_pattern_set(pattern_set_name, rotate_patterns=False, batch_size=32):
     """Get an instance of a pattern set.
 
     :param pattern_set_name: The name of a pattern set. Valid names are those in `VALID_PATTERN_SETS`.
+    :param rotate_patterns: Whether or not patterns returned by `sample()` should be randomly rotated.
     :param batch_size: In the case of a MNIST based pattern set, batch size is the number of images to keep in memory.
     :return: An instance of the pattern set corresponding to the given name.
     """
@@ -22,14 +23,14 @@ def get_pattern_set(pattern_set_name, batch_size=32):
         raise ValueError('Unrecognised pattern set \'%s\'' % pattern_set_name)
 
     if pattern_set_name == '3x3':
-        return Patterns3x3()
+        return Patterns3x3(rotate_patterns)
     elif pattern_set_name == '5x5':
-        return Patterns5x5()
+        return Patterns5x5(rotate_patterns)
     elif pattern_set_name in EMNIST_PATTERN_SETS:
         if pattern_set_name == 'emnist':
-            return PatternsMNIST('byclass', batch_size)
+            return PatternsMNIST('byclass', batch_size, rotate_patterns)
         else:
-            return PatternsMNIST(pattern_set_name, batch_size)
+            return PatternsMNIST(pattern_set_name, batch_size, rotate_patterns)
 
 
 class PatternSet(ABC):
@@ -37,6 +38,13 @@ class PatternSet(ABC):
 
     patterns = np.array([])
     width, height = 0, 0
+
+    def __init__(self, rotate_patterns=False):
+        """Create a new pattern set.
+
+        :param rotate_patterns: Whether or not patterns returned by `sample()` should be randomly rotated.
+        """
+        self.rotate_patterns = rotate_patterns
 
     @property
     @abc.abstractmethod
@@ -60,7 +68,8 @@ class PatternSet(ABC):
 
         :return: A randomly chosen pattern.
         """
-        return random.choice(self.patterns)
+        pattern = random.choice(self.patterns)
+        return np.rot90(pattern, k=random.randint(0, 3)) if self.rotate_patterns else pattern
 
 
 class Patterns3x3(PatternSet):
@@ -73,13 +82,37 @@ class Patterns3x3(PatternSet):
         [[0, 0, 0],
          [0, 0, 0],
          [0, 0, 0]],
+        # All Blacks
+        [[1, 1, 1],
+         [1, 1, 1],
+         [1, 1, 1]],
         # Dot
         [[0, 0, 0],
          [0, 1, 0],
          [0, 0, 0]],
-        # Dot
+        # Diag
+        [[1, 0, 0],
+         [0, 1, 0],
+         [0, 0, 1]],
+        # Lines
         [[1, 1, 1],
+         [0, 0, 0],
+         [1, 1, 1]],
+        # Corners
+        [[1, 0, 1],
+         [0, 0, 0],
+         [1, 0, 1]],
+        # Cross
+        [[0, 1, 0],
+         [1, 1, 1],
+         [0, 1, 0]],
+        # Middle Edges
+        [[0, 1, 0],
          [1, 0, 1],
+         [0, 1, 0]],
+        # Pyramid
+        [[0, 0, 0],
+         [0, 1, 0],
          [1, 1, 1]],
         # One
         [[0, 1, 0],
@@ -117,6 +150,10 @@ class Patterns3x3(PatternSet):
         [[1, 0, 1],
          [1, 0, 1],
          [1, 1, 1]],
+        # V
+        [[1, 0, 1],
+         [1, 0, 1],
+         [0, 1, 0]],
         # O
         [[1, 1, 1],
          [1, 0, 1],
@@ -140,12 +177,180 @@ class Patterns5x5(PatternSet):
          [0, 0, 0, 0, 0],
          [0, 0, 0, 0, 0],
          [0, 0, 0, 0, 0]],
+        # Everything
+        [[1, 1, 1, 1, 1],
+         [1, 1, 1, 1, 1],
+         [1, 1, 1, 1, 1],
+         [1, 1, 1, 1, 1],
+         [1, 1, 1, 1, 1]],
         # Dot
         [[0, 0, 0, 0, 0],
          [0, 0, 0, 0, 0],
          [0, 0, 1, 0, 0],
          [0, 0, 0, 0, 0],
          [0, 0, 0, 0, 0]],
+        # Line with a Dot
+        [[0, 0, 1, 0, 0],
+         [0, 0, 1, 0, 0],
+         [0, 0, 1, 0, 0],
+         [0, 0, 0, 0, 0],
+         [0, 0, 1, 0, 0]],
+        # Line
+        [[1, 0, 0, 0, 0],
+         [1, 0, 0, 0, 0],
+         [1, 0, 0, 0, 0],
+         [1, 0, 0, 0, 0],
+         [1, 0, 0, 0, 0]],
+        # Line in the middle
+        [[0, 0, 1, 0, 0],
+         [0, 0, 1, 0, 0],
+         [0, 0, 1, 0, 0],
+         [0, 0, 1, 0, 0],
+         [0, 0, 1, 0, 0]],
+        # Thicc line
+        [[0, 1, 1, 1, 0],
+         [0, 1, 1, 1, 0],
+         [0, 1, 1, 1, 0],
+         [0, 1, 1, 1, 0],
+         [0, 1, 1, 1, 0]],
+        # Two Lines
+        [[1, 0, 0, 0, 1],
+         [1, 0, 0, 0, 1],
+         [1, 0, 0, 0, 1],
+         [1, 0, 0, 0, 1],
+         [1, 0, 0, 0, 1]],
+        # Three Lines
+        [[1, 0, 1, 0, 1],
+         [1, 0, 1, 0, 1],
+         [1, 0, 1, 0, 1],
+         [1, 0, 1, 0, 1],
+         [1, 0, 1, 0, 1]],
+        # Diagonal
+        [[1, 0, 0, 0, 0],
+         [0, 1, 0, 0, 0],
+         [0, 0, 1, 0, 0],
+         [0, 0, 0, 1, 0],
+         [0, 0, 0, 0, 1]],
+        # Two Diagonals
+        [[1, 0, 1, 0, 0],
+         [0, 1, 0, 1, 0],
+         [0, 0, 1, 0, 1],
+         [0, 0, 0, 1, 0],
+         [0, 0, 0, 0, 1]],
+        # Three Diagonals
+        [[1, 0, 1, 0, 0],
+         [0, 1, 0, 1, 0],
+         [1, 0, 1, 0, 1],
+         [0, 1, 0, 1, 0],
+         [0, 0, 1, 0, 1]],
+        # Corners
+        [[1, 0, 0, 0, 1],
+         [0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 0],
+         [1, 0, 0, 0, 1]],
+        # Bigger corners
+        [[1, 1, 0, 1, 1],
+         [1, 0, 0, 0, 1],
+         [0, 0, 0, 0, 0],
+         [1, 0, 0, 0, 1],
+         [1, 1, 0, 1, 1]],
+        # Equals sign
+        [[0, 0, 0, 0, 0],
+         [1, 1, 1, 1, 1],
+         [0, 0, 0, 0, 0],
+         [1, 1, 1, 1, 1],
+         [0, 0, 0, 0, 0]],
+        # Not an Equals sign
+        [[0, 0, 0, 1, 0],
+         [1, 1, 1, 1, 1],
+         [0, 0, 1, 0, 0],
+         [1, 1, 1, 1, 1],
+         [0, 1, 0, 0, 0]],
+        # Less than
+        [[0, 0, 0, 1, 0],
+         [0, 0, 1, 0, 0],
+         [0, 1, 0, 0, 0],
+         [0, 0, 1, 0, 0],
+         [0, 0, 0, 1, 0]],
+        # Less than or equals
+        [[0, 0, 0, 1, 0],
+         [0, 0, 1, 0, 0],
+         [0, 1, 1, 1, 0],
+         [0, 0, 0, 0, 0],
+         [0, 1, 1, 1, 0]],
+        # Greater than
+        [[0, 1, 0, 0, 0],
+         [0, 0, 1, 0, 0],
+         [0, 0, 0, 1, 0],
+         [0, 0, 1, 0, 0],
+         [0, 1, 0, 0, 0]],
+        # Greater than or equals
+        [[0, 1, 0, 0, 0],
+         [0, 0, 1, 0, 0],
+         [0, 1, 1, 1, 0],
+         [0, 0, 0, 0, 0],
+         [0, 1, 1, 1, 0]],
+        # Hourglass
+        [[0, 1, 1, 1, 0],
+         [0, 1, 0, 1, 0],
+         [0, 0, 1, 0, 0],
+         [0, 1, 0, 1, 0],
+         [0, 1, 1, 1, 0]],
+        # Checkerboard
+        [[1, 0, 1, 0, 1],
+         [0, 1, 0, 1, 0],
+         [1, 0, 1, 0, 1],
+         [0, 1, 0, 1, 0],
+         [1, 0, 1, 0, 1]],
+        # #hashtag
+        [[0, 1, 0, 1, 0],
+         [1, 1, 1, 1, 1],
+         [0, 1, 0, 1, 0],
+         [1, 1, 1, 1, 1],
+         [0, 1, 0, 1, 0]],
+        # Arrow
+        [[0, 0, 1, 0, 0],
+         [0, 1, 1, 1, 0],
+         [1, 0, 1, 0, 1],
+         [0, 0, 1, 0, 0],
+         [0, 0, 1, 0, 0]],
+        # Diagonal Arrow
+        [[0, 1, 1, 1, 1],
+         [0, 0, 0, 1, 1],
+         [0, 0, 1, 0, 1],
+         [0, 1, 0, 0, 1],
+         [1, 0, 0, 0, 0]],
+        # Diamond
+        [[0, 0, 1, 0, 0],
+         [0, 1, 0, 1, 0],
+         [1, 0, 0, 0, 1],
+         [0, 1, 0, 1, 0],
+         [0, 0, 1, 0, 0]],
+        # Smiley
+        [[0, 1, 0, 1, 0],
+         [0, 1, 0, 1, 0],
+         [0, 0, 0, 0, 0],
+         [1, 0, 0, 0, 1],
+         [0, 1, 1, 1, 0]],
+        # Not Smiley
+        [[0, 1, 0, 1, 0],
+         [0, 1, 0, 1, 0],
+         [0, 0, 0, 0, 0],
+         [1, 1, 1, 1, 1],
+         [0, 0, 0, 0, 0]],
+        # Definitely Not Smiley
+        [[0, 1, 0, 1, 0],
+         [0, 1, 0, 1, 0],
+         [0, 0, 0, 0, 0],
+         [0, 1, 1, 1, 0],
+         [1, 0, 0, 0, 1]],
+        # Can't believe it's not smiley
+        [[1, 0, 0, 0, 1],
+         [0, 1, 0, 1, 0],
+         [0, 0, 0, 0, 0],
+         [0, 1, 1, 1, 0],
+         [1, 0, 0, 0, 1]],
         # One
         [[0, 0, 1, 0, 0],
          [0, 0, 1, 0, 0],
@@ -236,12 +441,24 @@ class Patterns5x5(PatternSet):
          [0, 1, 1, 1, 0],
          [0, 1, 0, 0, 0],
          [0, 1, 1, 1, 0]],
+        # e
+        [[1, 1, 1, 1, 1],
+         [1, 0, 0, 0, 1],
+         [1, 1, 1, 1, 1],
+         [1, 0, 0, 0, 0],
+         [1, 1, 1, 1, 1]],
         # F
         [[0, 1, 1, 1, 0],
          [0, 1, 0, 0, 0],
          [0, 1, 1, 1, 0],
          [0, 1, 0, 0, 0],
          [0, 1, 0, 0, 0]],
+        # f
+        [[0, 0, 1, 1, 0],
+         [0, 0, 1, 0, 0],
+         [0, 1, 1, 1, 0],
+         [0, 0, 1, 0, 0],
+         [0, 0, 1, 0, 0]],
         # G
         [[0, 1, 1, 1, 0],
          [0, 1, 0, 0, 0],
@@ -263,6 +480,12 @@ class Patterns5x5(PatternSet):
         # J
         [[1, 1, 1, 1, 1],
          [0, 0, 1, 0, 0],
+         [0, 0, 1, 0, 0],
+         [1, 0, 1, 0, 0],
+         [0, 1, 0, 0, 0]],
+        # j
+        [[0, 0, 1, 0, 0],
+         [0, 0, 0, 0, 0],
          [0, 0, 1, 0, 0],
          [1, 0, 1, 0, 0],
          [0, 1, 0, 0, 0]],
@@ -327,6 +550,12 @@ class Patterns5x5(PatternSet):
          [0, 1, 0, 1, 0],
          [0, 1, 0, 1, 0],
          [0, 0, 1, 0, 0]],
+        # u
+        [[1, 0, 0, 0, 1],
+         [1, 0, 0, 0, 1],
+         [1, 0, 0, 0, 1],
+         [0, 1, 0, 1, 1],
+         [0, 0, 1, 0, 1]],
         # V
         [[1, 0, 0, 0, 1],
          [1, 0, 0, 0, 1],
@@ -351,12 +580,24 @@ class Patterns5x5(PatternSet):
          [0, 0, 1, 0, 0],
          [0, 0, 1, 0, 0],
          [0, 0, 1, 0, 0]],
-        # Z
+        # Zea
         [[0, 1, 1, 1, 0],
          [0, 0, 0, 1, 0],
          [0, 0, 1, 0, 0],
          [0, 1, 0, 0, 0],
          [0, 1, 1, 1, 0]],
+        # Zed
+        [[1, 1, 1, 1, 1],
+         [0, 0, 0, 1, 0],
+         [0, 0, 1, 0, 0],
+         [0, 1, 0, 0, 0],
+         [1, 1, 1, 1, 0]],
+        # A cross zed
+        [[1, 1, 1, 1, 1],
+         [0, 0, 0, 1, 0],
+         [1, 1, 1, 1, 1],
+         [0, 1, 0, 0, 0],
+         [1, 1, 1, 1, 0]],
     ])
 
     @property
@@ -367,9 +608,10 @@ class Patterns5x5(PatternSet):
 class PatternsMNIST(PatternSet):
     width = height = 28
 
-    def __init__(self, dataset, batch_size=32):
-        """Create a new EMNIST pattern generator.
+    def __init__(self, dataset, batch_size=32, rotate_patterns=False):
+        """Create a new EMNIST pattern set.
 
+        :param rotate_patterns: Whether or not patterns returned by `sample()` should be randomly rotated.
         :param dataset: Which subset of EMNIST to use.
                         Valid choices are:
                         - byclass   : 814,255 characters. 62 unbalanced classes.
@@ -381,6 +623,8 @@ class PatternsMNIST(PatternSet):
 
         :param batch_size: The number of images to load into memory.
         """
+        super().__init__(rotate_patterns)
+
         self.emnist = MNIST('emnist_data', mode='rounded_binarized', return_type='numpy')
         self.emnist.select_emnist(dataset)
         self.batch_size = batch_size
@@ -393,11 +637,13 @@ class PatternsMNIST(PatternSet):
 
     def sample(self) -> np.ndarray:
         try:
-            return next(self.images)
+            image = next(self.images)
         except StopIteration:
             # Ran out of images, start again
             self.images = self._image_gen()
-            return next(self.images)
+            image = next(self.images)
+
+        return np.rot90(image, k=random.randint(0, 3)) if self.rotate_patterns else image
 
     def _image_gen(self):
         for images, _ in self.emnist.load_training_in_batches(self.batch_size):

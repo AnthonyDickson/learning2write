@@ -86,8 +86,9 @@ def get_env(n_workers: int, pattern_set: PatternSet) -> SubprocVecEnv:
     return SubprocVecEnv([lambda: WritingEnvironment(pattern_set, max_steps=max_steps) for _ in range(n_workers)])
 
 
-def get_model(env: SubprocVecEnv, model_path: Optional[str], model_type: str, pattern_set: PatternSet, policy_type: str,
-              tensorboard_log_path: str, acer_buffer_size=100000) -> ActorCriticRLModel:
+def get_model(env: SubprocVecEnv, model_path: Optional[str], model_type: str, pattern_set: PatternSet,
+              policy_type: str, er_buffer_size=1000000,
+              tensorboard_log_path: Optional[str] = None) -> ActorCriticRLModel:
     """Create the RL agent model, optionally loaded from a previously trained model.
 
     :param env: The vectorised gym environment (see stable_baselines.common.vec_env.SubprocVecEnv) to use with
@@ -96,8 +97,8 @@ def get_model(env: SubprocVecEnv, model_path: Optional[str], model_type: str, pa
     :param model_type: The name of the type of model to use.
     :param pattern_set: The pattern set that the model will be trained on.
     :param policy_type: The name of the type of policy to use for the model.
+    :param er_buffer_size: The size of the experience replay buffer to use with ACER models.
     :param tensorboard_log_path: The path to log training for use with Tensorboard.
-    :param acer_buffer_size: The size of the experience replay buffer to use with ACER models.
     :return: The instance of the RL agent.
     """
     if model_path:
@@ -106,7 +107,7 @@ def get_model(env: SubprocVecEnv, model_path: Optional[str], model_type: str, pa
         model.set_env(env)
 
         if isinstance(model, ACER):
-            model.buffer_size = acer_buffer_size
+            model.buffer_size = er_buffer_size
 
         model.setup_model()
     else:
@@ -225,6 +226,7 @@ def get_checkpointer(checkpoint_frequency: int, checkpoint_path: Optional[str], 
     pattern_set=plac.Annotation('The set of patterns to use in the environment.',
                                 choices=VALID_PATTERN_SETS,
                                 kind='option', type=str),
+    rotate_patterns=plac.Annotation('Flag indicating that patterns should be randomly rotated.', kind='flag'),
     emnist_batch_size=plac.Annotation('If using an EMNIST-based pattern set, how many images that should be loaded and '
                                       'kept in memory at once.',
                                       kind='option', type=int),
@@ -233,6 +235,9 @@ def get_checkpointer(checkpoint_frequency: int, checkpoint_path: Optional[str], 
                                type=str, kind='option'),
     model_path=plac.Annotation('Continue training a model specified by a path to a saved model.',
                                type=str, kind='option'),
+    er_buffer_size=plac.Annotation('The size of the experience replay buffer to use. '
+                                   'Ignored for all models but ACER.',
+                                   type=int, kind='option'),
     policy_type=plac.Annotation('The type of policy network to use. This is ignored if loading a model.',
                                 choices=['mlp', 'mlp5x5', 'mlpemnist', 'cnn'],
                                 type=str, kind='option'),
@@ -248,13 +253,15 @@ def get_checkpointer(checkpoint_frequency: int, checkpoint_path: Optional[str], 
                                          type=int, kind='option'),
 
 )
-def main(pattern_set='3x3', emnist_batch_size=512, model_type='acktr', model_path=None, policy_type='mlp',
+def main(pattern_set='3x3', rotate_patterns=False, emnist_batch_size=512, model_type='acktr', model_path=None,
+         er_buffer_size=1000000, policy_type='mlp',
          steps=1000000, n_workers=4, checkpoint_path=None, checkpoint_frequency=10000):
     """Train an A2C-based RL agent on the learning2write environment."""
-    pattern_set_ = get_pattern_set(pattern_set, emnist_batch_size)
+    pattern_set_ = get_pattern_set(pattern_set, rotate_patterns, emnist_batch_size)
 
     env = get_env(n_workers, pattern_set_)
-    model = get_model(env, model_path, model_type, pattern_set_, policy_type, tensorboard_log_path='./tensorboard/')
+    model = get_model(env, model_path, model_type, pattern_set_, policy_type, er_buffer_size,
+                      tensorboard_log_path='./tensorboard/')
     checkpointer = get_checkpointer(checkpoint_frequency, checkpoint_path, model, policy_type, pattern_set)
 
     try:

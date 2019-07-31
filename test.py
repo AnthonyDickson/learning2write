@@ -16,17 +16,18 @@ from train import get_model_type
                                type=str, kind='positional'),
     pattern_set=plac.Annotation('The set of patterns to use in the environment.', choices=VALID_PATTERN_SETS,
                                 kind='option', type=str),
+    rotate_patterns=plac.Annotation('Flag indicating that patterns should be randomly rotated.', kind='flag'),
     max_updates=plac.Annotation('The maximum number of steps to perform in the evironment.', type=int, kind='option'),
     max_steps=plac.Annotation('The maximum number of steps to perform per episode.', type=int, kind='option'),
     fps=plac.Annotation('How many steps to perform per second.', type=float, kind='option')
 )
-def main(model_path, model_type, pattern_set='3x3', max_updates=1000, max_steps=100, fps=2.0):
+def main(model_path, model_type, pattern_set='3x3', rotate_patterns=False, max_updates=1000, max_steps=100, fps=10.0):
     """Run a model in the writing environment in test mode (i.e. no training, just predictions).
 
     Press `Q` or `ESCAPE` to quit at any time.
     """
 
-    pattern_set = get_pattern_set(pattern_set)
+    pattern_set = get_pattern_set(pattern_set, rotate_patterns)
     model = get_model_type(model_type).load(model_path)
 
     with WritingEnvironment(pattern_set) as env:
